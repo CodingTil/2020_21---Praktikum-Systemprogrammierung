@@ -1,0 +1,26 @@
+##################################################################################
+### SHARED ACCESS
+##################################################################################
+SHARED ACCESS ueberprueft die korrektheit der Implementierung der Schreib- und Lesefunktionen für gemeinsamen Speicher. Dabei durchlaeuft er 10 Phasen. Zu beachten ist, dass in den Phasen 5 und 6 jeweils ein Fehler provoziert wird. Dieser muss auftreten und quittiert werden, woraufhin das Programm weiterlaeuft. Am Ende wird "All tests passed" auf dem LC-Display ausgegeben.
+
+
+##################################################################################
+### FREE PRIVATE
+##################################################################################
+FREE PRIVATE alloziert einen gemeinsamen und einen privaten Speicherbereich und versucht diese mit jeweils dem falschen Free-Befehl freizugeben. Das muss jeweils als Fehler angezeigt und verhindert werden.
+
+
+##################################################################################
+### YIELD
+##################################################################################
+YIELD ueberprueft, ob die gleichnamige Funktionalitaet korrekt implementiert wurde. Dabei wird in der unteren Zeile ein Verhaeltnis angezeigt. Dieses Verhaeltnis sollte sich innerhalb einer kurzen Zeitspanne einpendeln und dann konstant bleiben.
+
+##################################################################################
+### STABILITY SHARED
+##################################################################################
+STABILITY SHARED ueberprueft, ob das Allozieren und Reallozieren von gemeinsamen Speicherbereichen korrekt funktioniert. Insbesondere das Reallozieren kann nur dann funktionieren, wenn der wechselseitige Ausschluss korrekt realisiert wurde. In der oberen Zeile des LC-Displays wird dabei die verstrichene Zeit angezeigt. In der unteren Zeile wird links eine Zahl hochgezaehlt und rechts die Zahlen von 3 bis 5 durchgehend angezeigt. Die genaue Reihenfolge ist hierbei egal, jedoch muss jede Zahl von 3-5 immer wieder auftreten. Dieser Testtask gilt als bestanden, wenn er 3 Minuten läuft, ohne einen Fehler zu verursachen.
+
+
+##################################################################################
+### STABILITY SHARED EXTERNAL
+################################################################################## STABILITY SHARED EXTERNAL funktioniert genauso wie  STABILITY SHARED, testet die Verwaltung von gemeinsamen Speicher jedoch auf dem externen SRAM.

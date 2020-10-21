@@ -1,0 +1,7 @@
+<map id="os_core.h" name="os_core.h">
+<area shape="rect" id="node1" title="Core of the OS." alt="" coords="182,5,262,31"/>
+<area shape="rect" id="node2" href="$os__core_8c.html" title=" " alt="" coords="5,79,84,104"/>
+<area shape="rect" id="node3" href="$os__memory_8c.html" title=" " alt="" coords="108,79,208,104"/>
+<area shape="rect" id="node4" href="$os__scheduler_8c.html" title=" " alt="" coords="232,79,343,104"/>
+<area shape="rect" id="node5" href="$util_8c.html" title=" " alt="" coords="367,79,416,104"/>
+</map>

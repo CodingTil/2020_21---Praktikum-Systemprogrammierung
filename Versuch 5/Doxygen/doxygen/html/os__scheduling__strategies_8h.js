@@ -1,0 +1,25 @@
+var os__scheduling__strategies_8h =
+[
+    [ "ProcessQueue", "struct_process_queue.html", null ],
+    [ "SchedulingInformation", "struct_scheduling_information.html", null ],
+    [ "SchedulingInformation", "os__scheduling__strategies_8h.html#a13aac67d6c5ae31dd05667417622ea64", null ],
+    [ "MLFQ_getDefaultTimeslice", "os__scheduling__strategies_8h.html#aced6f1a87294783a6fa0d14cd72f96b0", null ],
+    [ "MLFQ_getQueue", "os__scheduling__strategies_8h.html#a629ffd3298efa00373e999a7d4d8fd32", null ],
+    [ "MLFQ_MapToQueue", "os__scheduling__strategies_8h.html#a95d2cb3869eb1152b7f3a1e3e42f24e5", null ],
+    [ "MLFQ_removePID", "os__scheduling__strategies_8h.html#afec6e9db0f495ab73d7b28f2158d8c5f", null ],
+    [ "os_initSchedulingInformation", "os__scheduling__strategies_8h.html#aae69aa1213f5d7664fe2785a0d1b51ab", null ],
+    [ "os_resetProcessSchedulingInformation", "os__scheduling__strategies_8h.html#aefdd44d05e14f2de4e9853aa83faf98c", null ],
+    [ "os_resetSchedulingInformation", "os__scheduling__strategies_8h.html#af63ac803dcc59d7fe7f363c1cf6d5b66", null ],
+    [ "os_Scheduler_Even", "os__scheduling__strategies_8h.html#a9266a96f24baa8d3855336fb9e04f3e3", null ],
+    [ "os_Scheduler_InactiveAging", "os__scheduling__strategies_8h.html#a971f4f9398aabe24922871fbaddc2a79", null ],
+    [ "os_Scheduler_MLFQ", "os__scheduling__strategies_8h.html#a5222eafd1e8d4672376cb24870dc496d", null ],
+    [ "os_Scheduler_Random", "os__scheduling__strategies_8h.html#a76e97c5980ec62d7cfcd20afabf5a13a", null ],
+    [ "os_Scheduler_RoundRobin", "os__scheduling__strategies_8h.html#ae37e8a914b50dfc9eb419a63e346b3d1", null ],
+    [ "os_Scheduler_RunToCompletion", "os__scheduling__strategies_8h.html#a74d94ddb0f07c51e7af05c9b0f76c135", null ],
+    [ "pqueue_append", "os__scheduling__strategies_8h.html#a3ae034c3452457a90dd7c074ca5c3aaf", null ],
+    [ "pqueue_dropFirst", "os__scheduling__strategies_8h.html#af2fe5737d2380feb249f6798c75279e0", null ],
+    [ "pqueue_getFirst", "os__scheduling__strategies_8h.html#ad6b26362a90e689ff188d2492a616eef", null ],
+    [ "pqueue_hasNext", "os__scheduling__strategies_8h.html#a7e2b52989067e26dde40df65a79ab934", null ],
+    [ "pqueue_init", "os__scheduling__strategies_8h.html#abcf6f70d0ed60b64437107c94ff0b9f7", null ],
+    [ "pqueue_reset", "os__scheduling__strategies_8h.html#aa6830b1c1886efadb22b77bcc0775a7c", null ]
+];

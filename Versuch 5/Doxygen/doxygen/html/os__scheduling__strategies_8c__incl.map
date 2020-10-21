@@ -1,0 +1,13 @@
+<map id="os_scheduling_strategies.c" name="os_scheduling_strategies.c">
+<area shape="rect" id="node1" title=" " alt="" coords="175,5,357,31"/>
+<area shape="rect" id="node2" href="$os__scheduling__strategies_8h.html" title="Scheduling library for the OS." alt="" coords="45,79,228,104"/>
+<area shape="rect" id="node4" title=" " alt="" coords="5,299,81,324"/>
+<area shape="rect" id="node5" href="$defines_8h.html" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="224,225,299,251"/>
+<area shape="rect" id="node9" href="$os__core_8h.html" title="Core of the OS." alt="" coords="303,79,383,104"/>
+<area shape="rect" id="node11" title=" " alt="" coords="407,79,471,104"/>
+<area shape="rect" id="node3" href="$os__scheduler_8h.html" title="Scheduling module for the OS." alt="" coords="66,152,177,177"/>
+<area shape="rect" id="node7" href="$os__process_8h.html" title="Struct specifying a process." alt="" coords="86,225,187,251"/>
+<area shape="rect" id="node6" href="$atmega644constants_8h.html" title="Constants for ATMega644 and EVA board. Defines several useful constants for the ATMega644." alt="" coords="193,299,349,324"/>
+<area shape="rect" id="node8" title=" " alt="" coords="104,299,169,324"/>
+<area shape="rect" id="node10" title=" " alt="" coords="304,152,420,177"/>
+</map>
