@@ -1,0 +1,31 @@
+##################################################################################
+### GARBAGECOLLECTION
+##################################################################################
+GARBAGECOLLECTION überprüft, ob beim Terminieren von Prozessen der dynamische Speicher korrekt aufgeräumt wird. Bei korrekter Implementierung läuft in der oberen Zeile des LC-Displays ein Statusbalken hoch und in der unteren wird der Fortschritt in zahlen angezeigt. Am Ende des Durchlaufs wird "finalisation ..." gefolgt von "Test Complete" auf dem Display ausgegeben und der Leerlaufprozess gestartet.
+
+##################################################################################
+### RANGE
+##################################################################################
+RANGE testen erneut eine Kombination aus Funktionalitäten die bereits von GARBAGECOLLECTION und TERMINATION getestet wurden. Er geht dabei jedoch insbesondere nochmal auf die Beliebigkeit der Größe von allozierten Speicherblöcken ein. In der oberen Zeile des LC-Displays wird dabei ein Statusbalken angezeigt, der aber kaum zu erkennen ist, da er sehr schnell hochläuft. In der unteren Zeile des LC-Displays steht, was der Testtask momentan für eine Phase durchläuft. Auch dies ist kaum lesbar, kann aber beim Debuggen helfen (wenn man den Testtask anhält). Am Ende wird für 3 Sekunden TEST COMPLETE auf dem LC-Display angezeigt und dann der Leerlaufprozess gestartet.
+
+
+##################################################################################
+### MEMTEST
+##################################################################################
+MEMTEST überprüft, ob der externe Speichertreiber korrekt arbeitet. Dabei wird nicht auf höhere Abstraktionsschichten der Speicherallokation geachtet, sondern nur auf der untersten Schicht das externe Speichermedium getestet. Bei korrekter Implementierung gibt MEMTEST nachdem er 4 Phasen durchlaufen hat "All tests passed" aus und startet dann den Leerlaufprozess.
+
+##################################################################################
+### ALLOC STRATEGIES
+##################################################################################
+ALLOC STRATEGIES überprüft, ob alle Allokationsstrategien korrekt implementiert wurden. Zuerst wird das Display einmal vollständig mit "f:f;" beschrieben; dann mit "n:n;", "b:b;" und dann mit "w:w;". Dazwischen wird kurz "Change to .." angezeigt. Sollten zwei verschiedene Buchstaben angezeigt werden (z.B. "n:w;"), so ist mindestens eine Allokationsstrategie nicht korrekt implementiert.
+
+
+##################################################################################
+### STABILTY PRIVATE WITH ALLOCSTRATS
+##################################################################################
+STABILITY PRIVATE WITH ALLOCSTRATS überprüft, ob das Allozieren von dynamischen Speicherbereichen in beliebiger Größe korrekt funktioniert und ob diese Bereiche auch korrekt beschrieben werden können. In regelmäßigen Abständen ändert der Testtask dabei die benutzte Allokationsstrategie. Bei korrekter Implementierung wird auf der oberen Zeile des LC-Displays die vergangene Zeit angezeigt und auf der unteren Zeile des LC-Displays wird fortlaufend "1a 1b 1c 1d 2a 2b 2c 2d 3a .." angezeigt. Die genaue Reihenfolge ist hierbei irrelevant, es muss jedoch jeder der Buchstaben von a-d sowie die Zahlen von 1-3 auftreten. Wenn die Allokationsstrategie gewechselt wird, so wird dies kurz auf dem LC-Display angezeigt (z.B. "Change to b"). Dieser Testtask gilt als bestanden, wenn er 3 Minuten läuft, ohne einen Fehler zu verursachen.
+
+##################################################################################
+### REALLOC
+##################################################################################
+REALLOC überprüft, ob die effiziente Reallokationsroutine korrekt implementiert wurde. Dabei führt sie den Test sowohl auf dem internen SRAM als auch auf dem externen SRAM aus. Am Ende des Tests blinkt drei mal "ALL TESTS PASSED" auf dem Display auf.

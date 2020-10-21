@@ -1,0 +1,9 @@
+<map id="os_memory_strategies.h" name="os_memory_strategies.h">
+<area shape="rect" id="node1" title="Memory allocation library for the OS." alt="" coords="118,5,285,31"/>
+<area shape="rect" id="node2" href="$os__memheap__drivers_8h.html" title="Drivers for OS heap management." alt="" coords="121,79,282,104"/>
+<area shape="rect" id="node3" href="$os__mem__drivers_8h.html" title="Drivers for OS memory management." alt="" coords="5,152,136,177"/>
+<area shape="rect" id="node5" href="$defines_8h.html" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="164,152,239,177"/>
+<area shape="rect" id="node7" title=" " alt="" coords="263,152,332,177"/>
+<area shape="rect" id="node4" title=" " alt="" coords="25,225,103,251"/>
+<area shape="rect" id="node6" href="$atmega644constants_8h.html" title="Constants for ATMega644 and EVA board. Defines several useful constants for the ATMega644." alt="" coords="127,225,284,251"/>
+</map>

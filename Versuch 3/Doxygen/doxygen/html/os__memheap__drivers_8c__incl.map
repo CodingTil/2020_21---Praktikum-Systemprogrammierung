@@ -1,0 +1,11 @@
+<map id="os_memheap_drivers.c" name="os_memheap_drivers.c">
+<area shape="rect" id="node1" title=" " alt="" coords="203,5,363,31"/>
+<area shape="rect" id="node2" href="$os__memheap__drivers_8h.html" title="Drivers for OS heap management." alt="" coords="52,152,212,177"/>
+<area shape="rect" id="node6" href="$defines_8h.html" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="318,79,394,104"/>
+<area shape="rect" id="node8" href="$os__memory__strategies_8h.html" title="Memory allocation library for the OS." alt="" coords="127,79,294,104"/>
+<area shape="rect" id="node9" title=" " alt="" coords="418,79,534,104"/>
+<area shape="rect" id="node3" href="$os__mem__drivers_8h.html" title="Drivers for OS memory management." alt="" coords="5,225,136,251"/>
+<area shape="rect" id="node5" title=" " alt="" coords="160,225,229,251"/>
+<area shape="rect" id="node4" title=" " alt="" coords="32,299,110,324"/>
+<area shape="rect" id="node7" href="$atmega644constants_8h.html" title="Constants for ATMega644 and EVA board. Defines several useful constants for the ATMega644." alt="" coords="278,152,434,177"/>
+</map>

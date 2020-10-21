@@ -1,0 +1,22 @@
+<map id="os_scheduler.c" name="os_scheduler.c">
+<area shape="rect" id="node1" title=" " alt="" coords="431,5,542,31"/>
+<area shape="rect" id="node2" href="$os__scheduler_8h.html" title="Scheduling module for the OS." alt="" coords="148,152,259,177"/>
+<area shape="rect" id="node3" title=" " alt="" coords="99,299,175,324"/>
+<area shape="rect" id="node8" href="$util_8h.html" title="Little helpers that don&#39;t fit elsewhere." alt="" coords="470,225,519,251"/>
+<area shape="rect" id="node10" href="$os__input_8h.html" title="Input library for the OS." alt="" coords="524,152,607,177"/>
+<area shape="rect" id="node11" href="$os__scheduling__strategies_8h.html" title="Scheduling library for the OS." alt="" coords="215,79,398,104"/>
+<area shape="rect" id="node12" href="$os__taskman_8h.html" title="TaskManager library for the OS." alt="" coords="36,79,140,104"/>
+<area shape="rect" id="node13" href="$os__core_8h.html" title="Core of the OS." alt="" coords="630,152,710,177"/>
+<area shape="rect" id="node14" href="$lcd_8h.html" title="Library for LCD use." alt="" coords="399,152,448,177"/>
+<area shape="rect" id="node15" href="$os__memheap__drivers_8h.html" title="Drivers for OS heap management." alt="" coords="785,152,945,177"/>
+<area shape="rect" id="node19" href="$os__memory_8h.html" title="Library for OS memory management." alt="" coords="625,79,726,104"/>
+<area shape="rect" id="node20" title=" " alt="" coords="801,79,905,104"/>
+<area shape="rect" id="node4" href="$defines_8h.html" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="269,225,344,251"/>
+<area shape="rect" id="node6" href="$os__process_8h.html" title="Struct specifying a process." alt="" coords="144,225,245,251"/>
+<area shape="rect" id="node5" href="$atmega644constants_8h.html" title="Constants for ATMega644 and EVA board. Defines several useful constants for the ATMega644." alt="" coords="228,299,385,324"/>
+<area shape="rect" id="node7" title=" " alt="" coords="436,299,500,324"/>
+<area shape="rect" id="node9" title=" " alt="" coords="550,299,666,324"/>
+<area shape="rect" id="node16" href="$os__mem__drivers_8h.html" title="Drivers for OS memory management." alt="" coords="696,225,827,251"/>
+<area shape="rect" id="node18" title=" " alt="" coords="851,225,919,251"/>
+<area shape="rect" id="node17" title=" " alt="" coords="722,299,800,324"/>
+</map>

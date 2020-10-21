@@ -1,0 +1,5 @@
+<map id="os_sh_malloc" name="os_sh_malloc">
+<area shape="rect" id="node1" title="Function used to allocate shared memory." alt="" coords="5,5,108,31"/>
+<area shape="rect" id="node2" href="$os__memory_8c.html#a5898dee5872eb916998a582be5531506" title=" " alt="" coords="156,5,277,31"/>
+<area shape="rect" id="node3" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="325,5,483,31"/>
+</map>
