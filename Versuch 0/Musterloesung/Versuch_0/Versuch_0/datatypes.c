@@ -9,7 +9,7 @@
 #include "button.h"
 
 void convert() {
-	uint8_t target = 200; //Solution: uint16_t target = 0;
+	uint8_t target = 200; //Solution: uint8_t target = 200;
 	
 	uint16_t i = target + 98;
 	target = i;
@@ -36,7 +36,7 @@ void loop() {
 }
 
 void shift() {
-	uint32_t result = 1 << 31; //Solution: (uint_32_t)1 << 31
+	uint32_t result = (uint32_t)1 << 31; //Solution: (uint32_t)1 << 31
 	
 	lcd_writeProgString(PSTR("Shift finished"));
 	lcd_line2();

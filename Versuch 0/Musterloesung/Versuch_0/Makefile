@@ -17,6 +17,7 @@ CFLAGS = \
   $(addprefix -I,$(INC)) \
   -DF_CPU=20000000UL \
   -Wall \
+  -Werror \
   -funsigned-char \
   -funsigned-bitfields \
   -ffunction-sections \
