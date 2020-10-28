@@ -20,28 +20,29 @@ Everything that is necessary to get the input from the Buttons in a clean format
  *           4 Buttons: 1,3,4 -pushed: 00001101
  */
 uint8_t getInput(void) {
-    #warning IMPLEMENT STH. HERE
+    return (~PIND & 0b00001111);
 }
 
 /*!
  *  Initializes DDR and PORT for input
  */
 void initInput(void) {
-    #warning IMPLEMENT STH. HERE
+    DDRD &= 0b11110000;
+	PORTD |= 0b00001111;
 }
 
 /*!
  *  Endless loop as long as at least one button is pressed.
  */
 void waitForNoInput(void) {
-    #warning IMPLEMENT STH. HERE
+    while(getInput() != 0b00000000);
 }
 
 /*!
  *  Endless loop until at least one button is pressed.
  */
 void waitForInput(void) {
-    #warning IMPLEMENT STH. HERE
+    while(getInput() == 0b00000000);
 }
 
 /*!
