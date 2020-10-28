@@ -1,12 +1,8 @@
 #include <avr/io.h>
-
+#include "button.h"
 
 int main(void){
-	
-	
-    /* Replace with your application code */
-    while (1) 
-    {
-    }
+    initInput();
+	buttonTest();
 }
 
