@@ -137,5 +137,26 @@ void os_init(void) {
  *  \param str  The error to be displayed
  */
 void os_errorPStr(char const* str) {
-    #warning IMPLEMENT STH. HERE
+    // Check if interrupts enabled
+	uint8_t interrupt_enabled = (TIMSK2 & (1<<OCIE2A)) >> OCIE2A;
+	
+	// Disable interrupts
+	cbi(TIMSK2, OCIE2A);
+	
+	// Print error message
+	lcd_writeProgString(PSTR(str));
+	
+	// Wait for button exit
+	while(true) {
+		os_waitForInput();
+		if(os_getInput() == 0b10000001) {
+			os_waitForNoInput();
+			break;
+		}
+	}
+	
+	// Reenable interrupts if neccessary
+	if(interrupt_enabled) {
+		sbi(TIMSK2, OCIE2A);
+	}
 }
