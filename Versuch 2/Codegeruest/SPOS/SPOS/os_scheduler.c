@@ -17,10 +17,12 @@
 //----------------------------------------------------------------------------
 
 //! Array of states for every possible process
-#warning IMPLEMENT STH. HERE
+//#warning IMPLEMENT STH. HERE
+Process *os_processes[MAX_NUMBER_OF_PROCESSES];
 
 //! Array of function pointers for every registered program
-#warning IMPLEMENT STH. HERE
+//#warning IMPLEMENT STH. HERE
+Program (*os_programs[MAX_NUMBER_OF_PROGRAMS])();
 
 //! Index of process that is currently executed (default: idle)
 #warning IMPLEMENT STH. HERE
@@ -159,7 +161,29 @@ ProgramID os_lookupProgramID(Program* program) {
  *          INVALID_PROCESS as specified in defines.h).
  */
 ProcessID os_exec(ProgramID programID, Priority priority) {
-    #warning IMPLEMENT STH. HERE
+    uint8_t index; // 8-bit, because MAX_NUMBER_OF_PROCESSES is 8
+	for(index = 0; index < MAX_NUMBER_OF_PROCESSES; index++) {
+		if(os_processes[index]->state == OS_PS_UNUSED) break;
+	}
+	if(index >= MAX_NUMBER_OF_PROGRAMS || os_processes[index]->state != OS_PS_UNUSED) return INVALID_PROCESS;
+	
+	Program* prog = os_lookupProgramFunction(programID);
+	if(prog == NULL) return INVALID_PROCESS;
+	
+	os_processes[index]->state = OS_PS_READY;
+	os_processes[index]->progID = programID;
+	os_processes[index]->priority = priority;
+	
+	uint16_t pc = prog;
+	StackPointer proccess_stack_bottom = PROCESS_STACK_BOTTOM(programID);
+	*proccess_stack_bottom = pc>>4;
+	*(proccess_stack_bottom - 1) = pc & 0b1111;
+	for(int i = 0; i < 33; i++) {
+		*(proccess_stack_bottom - 2 - i) = 0;
+	}
+	#warning Unsure about this part
+	os_processes[index]->sp.as_ptr = proccess_stack_bottom - 35;
+	os_processes[index]->sp.as_int = proccess_stack_bottom - 35;
 }
 
 /*!
