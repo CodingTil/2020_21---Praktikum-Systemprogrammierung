@@ -15,6 +15,7 @@
 
 //! Handy define to specify error messages directly
 #define os_error(str) os_errorPStr(PSTR(str))
+#define SREG _SFR_MEM8(0x3F)
 
 //----------------------------------------------------------------------------
 // Function headers
