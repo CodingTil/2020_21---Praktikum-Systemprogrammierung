@@ -30,9 +30,6 @@ void os_initInput() {
 	PORTC |= 0b11000011;
 }
 
-/*!
- *  Endless loop as long as at least one button is pressed.
- */
 void os_waitForNoInput() {
     while ((PINC & 0b11000011) != 0b11000011);
 }
