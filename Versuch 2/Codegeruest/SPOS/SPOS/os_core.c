@@ -138,10 +138,10 @@ void os_init(void) {
  */
 void os_errorPStr(char const* str) {
     // Check if interrupts enabled
-	uint8_t interrupt_enabled = (TIMSK2 & (1<<OCIE2A)) >> OCIE2A;
+	uint8_t interrupt_enabled = gbi(SREG, 7)
 	
 	// Disable interrupts
-	cbi(TIMSK2, OCIE2A);
+	cbi(SREG, 7);
 	
 	// Print error message
 	lcd_writeProgString(PSTR(str));
@@ -157,6 +157,6 @@ void os_errorPStr(char const* str) {
 	
 	// Reenable interrupts if neccessary
 	if(interrupt_enabled) {
-		sbi(TIMSK2, OCIE2A);
+		sbi(SREG, 7);
 	}
 }
