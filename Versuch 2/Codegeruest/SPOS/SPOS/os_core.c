@@ -56,7 +56,7 @@ void os_checkResetRegister(uint8_t blocking){
     lcd_line2();
     //evaluating hardware reset register
     if(MCUSR){
-        //checking Bit 4 = JTag reset Register only set when AVR_Reset is recieved
+        //checking Bit 4 = JTag reset Register only set when AVR_Reset is received
         if(gbi(MCUSR,4)){
             lcd_writeProgString(PSTR("JT "));
         }
@@ -137,5 +137,28 @@ void os_init(void) {
  *  \param str  The error to be displayed
  */
 void os_errorPStr(char const* str) {
-    #warning IMPLEMENT STH. HERE
+    // get global interrupt
+	uint8_t interrupts = gbi(SREG, 7);
+	
+	// disable global interrupt
+	cbi(SREG, 7);
+	
+	// print error message
+	lcd_writeProgString(PSTR(str));
+	
+	// wait for Enter + ESC
+	while (true) {
+		os_waitForInput();
+		if (os_getInput() == 0b10000001) {
+			break;
+		}
+	}
+	
+	// wait for release
+	os_waitForNoInput();
+
+	// reset global interrupt
+	if (interrupts) {
+		sbi(SREG, 7);
+	}
 }
