@@ -23,14 +23,16 @@ Process os_processes[MAX_NUMBER_OF_PROCESSES];
 Program (*os_programs[MAX_NUMBER_OF_PROGRAMS])();
 
 //! Index of process that is currently executed (default: idle)
-#warning IMPLEMENT STH. HERE
+//#warning IMPLEMENT STH. HERE
+ProcessID currentProc;
 
 //----------------------------------------------------------------------------
 // Private variables
 //----------------------------------------------------------------------------
 
 //! Currently active scheduling strategy
-#warning IMPLEMENT STH. HERE
+//#warning IMPLEMENT STH. HERE
+SchedulingStrategy currentSchedStrat;
 
 //! Count of currently nested critical sections
 #warning IMPLEMENT STH. HERE
@@ -58,7 +60,32 @@ ISR(TIMER2_COMPA_vect) __attribute__((naked));
  *  the processor to that process.
  */
 ISR(TIMER2_COMPA_vect) {
-    #warning IMPLEMENT STH. HERE
+	/*
+	os_processes[currentProc]->sp.as_ptr[0] = PC & 0b1111;
+	os_processes[currentProc]->sp.as_ptr[-1] = PC>>4;
+	os_processes[currentProc]->sp.as_ptr -= 2;
+	*/
+	saveContext();
+	
+	os_processes[currentProc]->sp.as_ptr = SP;
+	
+	SP = BOTTOM_OF_ISR_STACK;
+	
+	os_processes[currentProc]->state = OS_PS_READY;
+	
+	switch(currentSchedStrat) {
+		case OS_SS_EVEN: currentProc = os_Scheduler_Even(os_processes, currentProc); break;
+		case OS_SS_RANDOM: currentProc = os_Scheduler_Random(os_processes, currentProc); break;
+		case OS_SS_ROUND_ROBIN: currentProc = os_Scheduler_RoundRobin(os_processes, currentProc); break;
+		case OS_SS_INACTIVE_AGING: currentProc = os_Scheduler_InactiveAging(os_processes, currentProc); break;
+		case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
+	}
+	
+	os_processes[currentProc]->state = OS_PS_RUNNING;
+	
+	SP = os_processes[currentProc]->sp.as_ptr;
+	
+	restoreContext();
 }
 
 /*!
@@ -103,7 +130,10 @@ bool os_checkAutostartProgram(ProgramID programID) {
  *  and processor time no other process wants to have.
  */
 PROGRAM(0, AUTOSTART) {
-    #warning IMPLEMENT STH. HERE
+    while(true) {
+		lcd_writeProgString(PSTR("."));
+		delayMs(DEFAULT_OUTPUT_DELAY);
+	}
 }
 
 /*!
@@ -159,20 +189,28 @@ ProgramID os_lookupProgramID(Program* program) {
  *          INVALID_PROCESS as specified in defines.h).
  */
 ProcessID os_exec(ProgramID programID, Priority priority) {
-    uint8_t process_i = 0;
-	for (; process_i < MAX_NUMBER_OF_PROCESSES; process_i++) {
-		if (os_processes[process_i]->state == OS_PS_UNUSED) break;
+    uint8_t index; // 8-bit, because MAX_NUMBER_OF_PROCESSES is 8
+	for(index = 0; index < MAX_NUMBER_OF_PROCESSES; index++) {
+		if(os_processes[index]->state == OS_PS_UNUSED) break;
 	}
-	if (process_i >= MAX_NUMBER_OF_PROCESSES) return INVALID_PROCESS;
+	if(index >= MAX_NUMBER_OF_PROGRAMS) return INVALID_PROCESS;
 	
-	Program* program = os_lookupProgramFunction(programID);
-	if (program == NULL) return INVALID_PROCESS;
-
-	os_processes[process_i]->state = OS_PS_READY;
-	os_processes[process_i]->progID = programID;
-	os_processes[process_i]->priority = priority;
+	Program* prog = os_lookupProgramFunction(programID);
+	if(prog == NULL) return INVALID_PROCESS;
 	
+	os_processes[index]->state = OS_PS_READY;
+	os_processes[index]->progID = programID;
+	os_processes[index]->priority = priority;
 	
+	StackPointer proccess_stack_bottom = PROCESS_STACK_BOTTOM(programID);
+	proccess_stack_bottom.as_ptr = prog & 0b1111;
+	proccess_stack_bottom.as_ptr[-1] = prog>>4;
+	proccess_stack_bottom.as_ptr -= 2;
+	for(int i = 0; i < 33; i++) {
+		proccess_stack_bottom.as_ptr[-i] = 0;
+	}
+	proccess_stack_bottom.as_ptr -= 33;
+	os_processes[index]->sp = proccess_stack_bottom;
 }
 
 /*!
@@ -181,7 +219,10 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
  *  applications.
  */
 void os_startScheduler(void) {
-    #warning IMPLEMENT STH. HERE
+    currentProc = 0;
+	os_processes[0]->state = OS_PS_RUNNING;
+	SP = os_processes[0]->sp;
+	restoreContext();
 }
 
 /*!
@@ -189,7 +230,13 @@ void os_startScheduler(void) {
  *  initialize its internal data-structures and register.
  */
 void os_initScheduler(void) {
-    #warning IMPLEMENT STH. HERE
+    for(int index = 0; index < MAX_NUMBER_OF_PROCESSES; index++) {
+		os_processes[index]->state = OS_PS_UNUSED;
+	}
+	
+	for(int index = 0; index < MAX_NUMBER_OF_PROGRAMS; index++) {
+		if(os_checkAutostartProgram(os_lookupProgramID(os_programs[index]))) os_exec(os_lookupProgramID(os_programs[index])), DEFAULT_PRIORITY);
+	}
 }
 
 /*!
@@ -218,7 +265,7 @@ Program** os_getProgramSlot(ProgramID programID) {
  *  \return The process id of the currently active process.
  */
 ProcessID os_getCurrentProc(void) {
-    #warning IMPLEMENT STH. HERE
+    return currentProc;
 }
 
 /*!
