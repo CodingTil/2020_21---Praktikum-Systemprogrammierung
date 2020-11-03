@@ -36,7 +36,7 @@ void os_resetProcessSchedulingInformation(ProcessID id) {
  *  \return The next process to be executed determined on the basis of the even strategy.
  */
 ProcessID os_Scheduler_Even(Process const processes[], ProcessID current) {
-    for(int i = current + 1; i <= MAX_NUMBER_OF_PROCESSES + current; i++) {
+    for(uint8_t i = current + 1; i <= MAX_NUMBER_OF_PROCESSES + current; i++) {
 		if(processes[i % MAX_NUMBER_OF_PROCESSES]->state == OS_PS_READY && i % MAX_NUMBER_OF_PROCESSES != 0) return i % MAX_NUMBER_OF_PROCESSES;
 	}
 	return 0;
@@ -55,7 +55,7 @@ ProcessID os_Scheduler_Random(Process const processes[], ProcessID current) {
     if(number_active_procs == 1) return 0; //Only idle process
     uint8_t active_found = 0;
     uint8_t result = rand() % (number_active_procs - 1);
-	for(int i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
+	for(uint8_t i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
 		if(processes[i]->state == OS_PS_READY) {
 			if(active_found++ == result) return i;
 		}
@@ -75,8 +75,9 @@ ProcessID os_Scheduler_Random(Process const processes[], ProcessID current) {
  *  \return The next process to be executed determined on the basis of the round robin strategy.
  */
 ProcessID os_Scheduler_RoundRobin(Process const processes[], ProcessID current) {
-    // This is a presence task
-    return 0;
+    if(processes[current]->priority == 0) return os_Scheduler_Even(processes, current);
+	processes[current]->priority -= 1;
+	return current;
 }
 
 /*!
@@ -91,8 +92,50 @@ ProcessID os_Scheduler_RoundRobin(Process const processes[], ProcessID current) 
  *  \return The next process to be executed, determined based on the inactive-aging strategy.
  */
 ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID current) {
-    // This is a presence task
-    return 0;
+	// Increasing age + Sorting by Insertion Sort
+	/*
+	 * This code is shit.
+	 * - Author
+	 */
+	uint8_t k, j;
+	uint8_t ages[MAX_NUMBER_OF_PROCESSES - 1];
+	uint8_t indices[MAX_NUMBER_OF_PROCESSES - 1];
+    for(uint8_t i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
+		if(processes[i]->state != OS_PS_UNUSED && i != current) {
+			processes[i]->age += processes[i]->priority;
+			k = processes[i]->age;
+		}else if(i == current) {
+			k = processes[i]->age;
+		}else {
+			k = 0;
+		}
+		j = i - 2;
+		while(j >= 0 && ages[j] > k) {
+			ages[j + 1] == ages[j];
+			indices[j + 1] == indices[j];
+			j--;
+		}
+		ages[j + 1] = k;
+		indices[j + 1] = i;
+	}
+	if(ages[0] > ages[1]) {
+		processes[indices[0]]->age = processes[indices[0]]->priority;
+		return indices[0];
+	}else {
+		uint8_t max_prio = processes[indices[0]]->priority;
+		uint8_t max_age = ages[0];
+		uint8_t max_index_index;
+		for(uint8_t i = MAX_NUMBER_OF_PROCESSES - 2; i > 0; i++) {
+			if(ages[i] == max_age && processes[indices[i]]->priority > max_age) {
+				max_age = processes[indices[i]]->priority;
+				max_index_index = i + 1;
+			}
+		}
+		if(max_index_index == 0) return 0; // Leerlauf
+		return indices[max_index_index - 1];
+	}
+	
+	
 }
 
 /*!
@@ -105,6 +148,6 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
  *  \return The next process to be executed, determined based on the run-to-completion strategy.
  */
 ProcessID os_Scheduler_RunToCompletion(Process const processes[], ProcessID current) {
-    // This is a presence task
-    return 0;
+    if(processes[current]->state == OS_PS_UNUSED) return os_Scheduler_Even(processes, current);
+	return current;
 }

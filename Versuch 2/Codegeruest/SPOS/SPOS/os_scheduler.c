@@ -203,6 +203,7 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	os_processes[index]->state = OS_PS_READY;
 	os_processes[index]->progID = programID;
 	os_processes[index]->priority = priority;
+	os_processes[index]->age = priority;
 	
 	StackPointer proccess_stack_bottom = PROCESS_STACK_BOTTOM(programID);
 	proccess_stack_bottom.as_ptr = prog & 0b1111;
@@ -304,7 +305,7 @@ uint8_t os_getNumberOfRegisteredPrograms(void) {
  *  \param strategy The strategy that will be used after the function finishes.
  */
 void os_setSchedulingStrategy(SchedulingStrategy strategy) {
-    #warning IMPLEMENT STH. HERE
+    currentSchedStrat = strategy;
 }
 
 /*!
@@ -313,7 +314,7 @@ void os_setSchedulingStrategy(SchedulingStrategy strategy) {
  *  \return The current scheduling strategy.
  */
 SchedulingStrategy os_getSchedulingStrategy(void) {
-    #warning IMPLEMENT STH. HERE
+    return currentSchedStrat;
 }
 
 /*!
