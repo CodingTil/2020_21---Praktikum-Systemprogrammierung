@@ -20,10 +20,9 @@
 Process os_processes[MAX_NUMBER_OF_PROCESSES];
 
 //! Array of function pointers for every registered program
-Program (*os_programs[MAX_NUMBER_OF_PROGRAMS])();
+Program* os_programs[MAX_NUMBER_OF_PROGRAMS];
 
 //! Index of process that is currently executed (default: idle)
-//#warning IMPLEMENT STH. HERE
 ProcessID currentProc;
 
 //----------------------------------------------------------------------------
@@ -31,11 +30,10 @@ ProcessID currentProc;
 //----------------------------------------------------------------------------
 
 //! Currently active scheduling strategy
-//#warning IMPLEMENT STH. HERE
 SchedulingStrategy currentSchedStrat;
 
 //! Count of currently nested critical sections
-#warning IMPLEMENT STH. HERE
+uint8_t criticalSectionCount;
 
 //! Used to auto-execute programs.
 uint16_t os_autostart;
@@ -71,6 +69,13 @@ ISR(TIMER2_COMPA_vect) {
 	
 	SP = BOTTOM_OF_ISR_STACK;
 	
+	os_processes[currentProc]->checksum = os_getStackChecksum(currentProc);
+	
+	if (os_getInput() == 0b10000001) {
+		os_waitForNoInput();
+		os_taskManMain();
+	}
+	
 	os_processes[currentProc]->state = OS_PS_READY;
 	
 	switch(currentSchedStrat) {
@@ -81,6 +86,9 @@ ISR(TIMER2_COMPA_vect) {
 		case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
 	}
 	
+	if (os_processes[currentProc]->checksum != os_getStackChecksum(currentProc)) {
+		os_error("There is an inconsistancy in the stack.");
+	}
 	os_processes[currentProc]->state = OS_PS_RUNNING;
 	
 	SP = os_processes[currentProc]->sp.as_ptr;
@@ -211,6 +219,8 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	}
 	proccess_stack_bottom.as_ptr -= 33;
 	os_processes[index]->sp = proccess_stack_bottom;
+	os_processes[index]->checksum = os_getStackChecksum(index);
+	return index;
 }
 
 /*!
@@ -322,7 +332,20 @@ SchedulingStrategy os_getSchedulingStrategy(void) {
  *  This function supports up to 255 nested critical sections.
  */
 void os_enterCriticalSection(void) {
-    #warning IMPLEMENT STH. HERE
+    // get global interrupt
+    uint8_t interrupts = gbi(SREG, 7);
+    	
+    // disable global interrupt
+    cbi(SREG, 7);
+	
+	criticalSectionCount++;
+	
+	cbi(TIMSK2, OCIE2A);
+    	
+	// reset global interrupt
+	if (interrupts) {
+		sbi(SREG, 7);
+	}
 }
 
 /*!
@@ -332,7 +355,22 @@ void os_enterCriticalSection(void) {
  *  has to be reactivated.
  */
 void os_leaveCriticalSection(void) {
-    #warning IMPLEMENT STH. HERE
+    // get global interrupt
+    uint8_t interrupts = gbi(SREG, 7);
+    
+    // disable global interrupt
+    cbi(SREG, 7);
+    
+    if (--criticalSectionCount == 0) {
+		sbi(TIMSK2, OCIE2A);
+	} else if (criticalSectionCount < 0) {
+		os_error("Tried to leave critical section without entering it");
+	}
+    
+    // reset global interrupt
+    if (interrupts) {
+	    sbi(SREG, 7);
+    }
 }
 
 /*!
@@ -342,5 +380,9 @@ void os_leaveCriticalSection(void) {
  *  \return The checksum of the pid'th stack.
  */
 StackChecksum os_getStackChecksum(ProcessID pid) {
-    #warning IMPLEMENT STH. HERE
+    StackChecksum sum = 0;
+	for (StackPointer i = PROCESS_STACK_BOTTOM(pid); i.as_int > os_processes[pid]->sp.as_int; i.as_ptr--) {
+		sum ^= *(i.as_ptr);
+	}
+	return sum;
 }
