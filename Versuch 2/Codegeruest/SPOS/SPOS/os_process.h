@@ -54,6 +54,7 @@ typedef struct {
 	ProcessState state;
 	Priority priority;
 	StackPointer sp;
+	StackChecksum checksum;
 } Process;
 
 //! This is the type of a program function (not the pointer to one!).

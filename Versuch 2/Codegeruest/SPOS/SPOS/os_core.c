@@ -137,11 +137,7 @@ void os_init(void) {
  *  \param str  The error to be displayed
  */
 void os_errorPStr(char const* str) {
-    // get global interrupt
-	uint8_t interrupts = gbi(SREG, 7);
-	
-	// disable global interrupt
-	cbi(SREG, 7);
+	os_enterCriticalSection();
 	
 	// print error message
 	lcd_writeProgString(PSTR(str));
@@ -157,8 +153,5 @@ void os_errorPStr(char const* str) {
 	// wait for release
 	os_waitForNoInput();
 
-	// reset global interrupt
-	if (interrupts) {
-		sbi(SREG, 7);
-	}
+	os_leaveCriticalSection();
 }
