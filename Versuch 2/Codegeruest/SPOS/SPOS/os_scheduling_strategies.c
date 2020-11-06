@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+SchedulingInformation schedulingInfo;
+
 /*!
  *  Reset the scheduling information for a specific strategy
  *  This is only relevant for RoundRobin and InactiveAging
@@ -11,7 +13,13 @@
  * \param strategy  The strategy to reset information for
  */
 void os_resetSchedulingInformation(SchedulingStrategy strategy) {
-    // This is a presence task
+    if(strategy == OS_SS_ROUND_ROBIN) {
+		schedulingInfo.timeSlice = os_getProcessSlot(os_getCurrentProc())->priority;
+	}else if(strategy == OS_SS_INACTIVE_AGING) {
+		for(uint8_t i = 0; i < MAX_NUMBER_OF_PROCESSES; i++) {
+			schedulingInfo.age[i] = 0;
+		}
+	}
 }
 
 /*!
@@ -22,7 +30,7 @@ void os_resetSchedulingInformation(SchedulingStrategy strategy) {
  *  \param id  The process slot to erase state for
  */
 void os_resetProcessSchedulingInformation(ProcessID id) {
-    // This is a presence task
+    schedulingInfo.age[id] = 0;
 }
 
 /*!
@@ -75,8 +83,12 @@ ProcessID os_Scheduler_Random(Process const processes[], ProcessID current) {
  *  \return The next process to be executed determined on the basis of the round robin strategy.
  */
 ProcessID os_Scheduler_RoundRobin(Process const processes[], ProcessID current) {
-    if(processes[current]->priority == 0) return os_Scheduler_Even(processes, current);
-	processes[current]->priority -= 1;
+    if(schedulingInfo.timeSlice == 0) {
+		ProcessID id = os_Scheduler_Even(processes, current);
+		schedulingInfo.timeSlice = os_getProcessSlot(id)->priority;
+		return id;
+	}
+	schedulingInfo.timeSlice -= 1;
 	return current;
 }
 
@@ -102,10 +114,10 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 	uint8_t indices[MAX_NUMBER_OF_PROCESSES - 1];
     for(uint8_t i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
 		if(processes[i]->state != OS_PS_UNUSED && i != current) {
-			processes[i]->age += processes[i]->priority;
-			k = processes[i]->age;
+			schedulingInfo.age[i] += processes[i]->priority;
+			k = schedulingInfo.age[i];
 		}else if(i == current) {
-			k = processes[i]->age;
+			k = schedulingInfo.age[i];
 		}else {
 			k = 0;
 		}
@@ -119,7 +131,7 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 		indices[j + 1] = i;
 	}
 	if(ages[0] > ages[1]) {
-		processes[indices[0]]->age = processes[indices[0]]->priority;
+		schedulingInfo.age[indices[0]] = processes[indices[0]]->priority;
 		return indices[0];
 	}else {
 		uint8_t max_prio = processes[indices[0]]->priority;

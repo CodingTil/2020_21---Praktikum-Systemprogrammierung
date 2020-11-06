@@ -203,6 +203,8 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	}
 	if(index >= MAX_NUMBER_OF_PROGRAMS) return INVALID_PROCESS;
 	
+	os_resetProcessSchedulingInformation(index);
+	
 	Program* prog = os_lookupProgramFunction(programID);
 	if(prog == NULL) return INVALID_PROCESS;
 	
@@ -314,6 +316,7 @@ uint8_t os_getNumberOfRegisteredPrograms(void) {
  */
 void os_setSchedulingStrategy(SchedulingStrategy strategy) {
     currentSchedStrat = strategy;
+	os_resetSchedulingInformation(strategy);
 }
 
 /*!
