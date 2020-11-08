@@ -19,7 +19,7 @@ Everything that is necessary to get the input from the Buttons in a clean format
  *
  */
 uint8_t os_getInput(void) {
-	return (~PINC & 0b11000011);
+	return (~PINC & 0b00000011) | (((~PINC) >> 4) & 0b00001100) ;
 }
 
 /*!

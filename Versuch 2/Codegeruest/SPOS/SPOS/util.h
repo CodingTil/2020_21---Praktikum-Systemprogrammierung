@@ -58,7 +58,7 @@ void delayMs(uint16_t ms);
  *  this call, or data may be lost, resulting in weird effects.
  */
 #define saveContext() \
-    asm volatile( \
+    __asm__ volatile( \
         "push  r31                           \n\t" \
         "in    r31, __SREG__                 \n\t" \
         "cli                                 \n\t" \
@@ -106,7 +106,7 @@ void delayMs(uint16_t ms);
  *  this call, or data may be lost, resulting in weird effects.
  */
 #define restoreContext() \
-    asm volatile( \
+    __asm__ volatile( \
         "pop  r0                             \n\t" \
         "pop  r1                             \n\t" \
         "pop  r2                             \n\t" \
