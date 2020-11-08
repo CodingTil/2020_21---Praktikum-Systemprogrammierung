@@ -65,18 +65,18 @@ ISR(TIMER2_COMPA_vect) {
 	*/
 	saveContext();
 	
-	os_processes[currentProc]->sp.as_ptr = SP;
+	os_processes[currentProc].sp.as_int = SP;
 	
 	SP = BOTTOM_OF_ISR_STACK;
 	
-	os_processes[currentProc]->checksum = os_getStackChecksum(currentProc);
+	os_processes[currentProc].checksum = os_getStackChecksum(currentProc);
 	
 	if (os_getInput() == 0b10000001) {
 		os_waitForNoInput();
 		os_taskManMain();
 	}
 	
-	os_processes[currentProc]->state = OS_PS_READY;
+	os_processes[currentProc].state = OS_PS_READY;
 	
 	switch(currentSchedStrat) {
 		case OS_SS_EVEN: currentProc = os_Scheduler_Even(os_processes, currentProc); break;
@@ -86,12 +86,12 @@ ISR(TIMER2_COMPA_vect) {
 		case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
 	}
 	
-	if (os_processes[currentProc]->checksum != os_getStackChecksum(currentProc)) {
+	if (os_processes[currentProc].checksum != os_getStackChecksum(currentProc)) {
 		os_error("There is an inconsistancy in the stack.");
 	}
-	os_processes[currentProc]->state = OS_PS_RUNNING;
+	os_processes[currentProc].state = OS_PS_RUNNING;
 	
-	SP = os_processes[currentProc]->sp.as_ptr;
+	SP = os_processes[currentProc].sp.as_int;
 	
 	restoreContext();
 }
@@ -197,32 +197,43 @@ ProgramID os_lookupProgramID(Program* program) {
  *          INVALID_PROCESS as specified in defines.h).
  */
 ProcessID os_exec(ProgramID programID, Priority priority) {
+	os_enterCriticalSection();
     uint8_t index; // 8-bit, because MAX_NUMBER_OF_PROCESSES is 8
 	for(index = 0; index < MAX_NUMBER_OF_PROCESSES; index++) {
-		if(os_processes[index]->state == OS_PS_UNUSED) break;
+		if(os_processes[index].state == OS_PS_UNUSED) break;
 	}
-	if(index >= MAX_NUMBER_OF_PROGRAMS) return INVALID_PROCESS;
-	
-	os_resetProcessSchedulingInformation(index);
+	if(index >= MAX_NUMBER_OF_PROGRAMS) {
+		os_leaveCriticalSection();	
+		return INVALID_PROCESS;
+	}
 	
 	Program* prog = os_lookupProgramFunction(programID);
-	if(prog == NULL) return INVALID_PROCESS;
-	
-	os_processes[index]->state = OS_PS_READY;
-	os_processes[index]->progID = programID;
-	os_processes[index]->priority = priority;
-	os_processes[index]->age = priority;
-	
-	StackPointer proccess_stack_bottom = PROCESS_STACK_BOTTOM(programID);
-	proccess_stack_bottom.as_ptr = prog & 0b1111;
-	proccess_stack_bottom.as_ptr[-1] = prog>>4;
-	proccess_stack_bottom.as_ptr -= 2;
-	for(int i = 0; i < 33; i++) {
-		proccess_stack_bottom.as_ptr[-i] = 0;
+	if(prog == NULL) {
+		os_leaveCriticalSection();	
+		return INVALID_PROCESS;
 	}
-	proccess_stack_bottom.as_ptr -= 33;
-	os_processes[index]->sp = proccess_stack_bottom;
-	os_processes[index]->checksum = os_getStackChecksum(index);
+	
+	os_processes[index].state = OS_PS_READY;
+	os_processes[index].progID = programID;
+	os_processes[index].priority = priority;
+
+	os_resetProcessSchedulingInformation(index);
+	
+	StackPointer proccess_stack_bottom;
+	proccess_stack_bottom.as_int = PROCESS_STACK_BOTTOM(programID);
+	*(proccess_stack_bottom.as_ptr) = ((uint16_t) prog << 8 ) >> 8;
+	proccess_stack_bottom.as_int--;
+	*(proccess_stack_bottom.as_ptr) = (uint16_t) prog >> 8;
+	proccess_stack_bottom.as_int--;
+	for(uint8_t i = 0; i < 33; i++) {
+		*proccess_stack_bottom.as_ptr = 0;
+		proccess_stack_bottom.as_int--;
+	}
+	os_processes[index].sp.as_int = proccess_stack_bottom.as_int;
+	os_processes[index].checksum = os_getStackChecksum(index);
+
+	os_leaveCriticalSection();
+
 	return index;
 }
 
@@ -233,8 +244,8 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
  */
 void os_startScheduler(void) {
     currentProc = 0;
-	os_processes[0]->state = OS_PS_RUNNING;
-	SP = os_processes[0]->sp;
+	os_processes[0].state = OS_PS_RUNNING;
+	SP = os_processes[0].sp.as_int;
 	restoreContext();
 }
 
@@ -243,12 +254,12 @@ void os_startScheduler(void) {
  *  initialize its internal data-structures and register.
  */
 void os_initScheduler(void) {
-    for(int index = 0; index < MAX_NUMBER_OF_PROCESSES; index++) {
-		os_processes[index]->state = OS_PS_UNUSED;
+    for(uint8_t index = 0; index < MAX_NUMBER_OF_PROCESSES; index++) {
+		os_processes[index].state = OS_PS_UNUSED;
 	}
 	
-	for(int index = 0; index < MAX_NUMBER_OF_PROGRAMS; index++) {
-		if(os_checkAutostartProgram(os_lookupProgramID(os_programs[index]))) os_exec(os_lookupProgramID(os_programs[index])), DEFAULT_PRIORITY);
+	for(uint8_t index = 0; index < MAX_NUMBER_OF_PROGRAMS; index++) {
+		if(os_checkAutostartProgram(index)) os_exec(index, DEFAULT_PRIORITY);
 	}
 }
 
@@ -315,8 +326,8 @@ uint8_t os_getNumberOfRegisteredPrograms(void) {
  *  \param strategy The strategy that will be used after the function finishes.
  */
 void os_setSchedulingStrategy(SchedulingStrategy strategy) {
-    currentSchedStrat = strategy;
 	os_resetSchedulingInformation(strategy);
+    currentSchedStrat = strategy;
 }
 
 /*!
@@ -385,7 +396,8 @@ void os_leaveCriticalSection(void) {
  */
 StackChecksum os_getStackChecksum(ProcessID pid) {
     StackChecksum sum = 0;
-	for (StackPointer i = PROCESS_STACK_BOTTOM(pid); i.as_int > os_processes[pid]->sp.as_int; i.as_ptr--) {
+	StackPointer i;
+	for (i.as_int = PROCESS_STACK_BOTTOM(pid); i.as_int > os_processes[pid].sp.as_int; i.as_ptr--) {
 		sum ^= *(i.as_ptr);
 	}
 	return sum;

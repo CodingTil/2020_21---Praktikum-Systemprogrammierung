@@ -45,7 +45,7 @@ void os_resetProcessSchedulingInformation(ProcessID id) {
  */
 ProcessID os_Scheduler_Even(Process const processes[], ProcessID current) {
     for(uint8_t i = current + 1; i <= MAX_NUMBER_OF_PROCESSES + current; i++) {
-		if(processes[i % MAX_NUMBER_OF_PROCESSES]->state == OS_PS_READY && i % MAX_NUMBER_OF_PROCESSES != 0) return i % MAX_NUMBER_OF_PROCESSES;
+		if(processes[i % MAX_NUMBER_OF_PROCESSES].state == OS_PS_READY && i % MAX_NUMBER_OF_PROCESSES != 0) return i % MAX_NUMBER_OF_PROCESSES;
 	}
 	return 0;
 }
@@ -64,7 +64,7 @@ ProcessID os_Scheduler_Random(Process const processes[], ProcessID current) {
     uint8_t active_found = 0;
     uint8_t result = rand() % (number_active_procs - 1);
 	for(uint8_t i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
-		if(processes[i]->state == OS_PS_READY) {
+		if(processes[i].state == OS_PS_READY) {
 			if(active_found++ == result) return i;
 		}
 	}
@@ -109,12 +109,13 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 	 * This code is shit.
 	 * - Author
 	 */
+	/*
 	uint8_t k, j;
 	uint8_t ages[MAX_NUMBER_OF_PROCESSES - 1];
 	uint8_t indices[MAX_NUMBER_OF_PROCESSES - 1];
     for(uint8_t i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
-		if(processes[i]->state != OS_PS_UNUSED && i != current) {
-			schedulingInfo.age[i] += processes[i]->priority;
+		if(processes[i].state != OS_PS_UNUSED && i != current) {
+			schedulingInfo.age[i] += processes[i].priority;
 			k = schedulingInfo.age[i];
 		}else if(i == current) {
 			k = schedulingInfo.age[i];
@@ -131,23 +132,23 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 		indices[j + 1] = i;
 	}
 	if(ages[0] > ages[1]) {
-		schedulingInfo.age[indices[0]] = processes[indices[0]]->priority;
+		schedulingInfo.age[indices[0]] = processes[indices[0]].priority;
 		return indices[0];
 	}else {
-		uint8_t max_prio = processes[indices[0]]->priority;
+		uint8_t max_prio = processes[indices[0]].priority;
 		uint8_t max_age = ages[0];
 		uint8_t max_index_index;
 		for(uint8_t i = MAX_NUMBER_OF_PROCESSES - 2; i > 0; i++) {
-			if(ages[i] == max_age && processes[indices[i]]->priority > max_age) {
-				max_age = processes[indices[i]]->priority;
+			if(ages[i] == max_age && processes[indices[i]].priority > max_age) {
+				max_age = processes[indices[i]].priority;
 				max_index_index = i + 1;
 			}
 		}
 		if(max_index_index == 0) return 0; // Leerlauf
 		return indices[max_index_index - 1];
 	}
-	
-	
+	*/
+	return 0;
 }
 
 /*!
@@ -160,6 +161,6 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
  *  \return The next process to be executed, determined based on the run-to-completion strategy.
  */
 ProcessID os_Scheduler_RunToCompletion(Process const processes[], ProcessID current) {
-    if(processes[current]->state == OS_PS_UNUSED) return os_Scheduler_Even(processes, current);
+    if(processes[current].state == OS_PS_UNUSED) return os_Scheduler_Even(processes, current);
 	return current;
 }

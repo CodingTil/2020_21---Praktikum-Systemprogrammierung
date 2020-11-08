@@ -1012,13 +1012,14 @@ make_pagehandler(tm_scheduling, tm_scheduling_set, 0, 1, OS_PR_SCHEDULING_SELECT
     return strategySelector(p, getSchedulingStratNames, os_getSchedulingStrategy());
 }
 
+void setSS(void* passThrough, uint16_t select) {
+    os_setSchedulingStrategy(select);
+}
+
 /*!
  *  The page to set a previously selected scheduling strategy.
  */
 make_pagehandler(tm_scheduling_set, tm_null, 0, 0, OS_PR_SCHEDULING, ss, peekStack(1).param) {
-    void setSS(void* passThrough, uint16_t select) {
-        os_setSchedulingStrategy(select);
-    }
     return strategyChanger(p, getSchedulingStratNames, os_getSchedulingStrategy(),
                            setSS, 0);
 }
@@ -1111,14 +1112,15 @@ make_pagehandler(tm_heap_strategy, tm_heap_strategy_set, 0, 1, OS_PR_ALLOCATION_
     return strategySelector(p, getAllocationStratNames, os_getAllocationStrategy(heap));
 }
 
+void setAS(void* passThrough, uint16_t select) {
+    os_setAllocationStrategy((Heap*)passThrough, select);
+}
+
 /*!
  *  The page to commit (i.e. set) a previously selected allocation strategy
  *  for the earlier selected heap.
  */
 make_pagehandler(tm_heap_strategy_set, tm_null, 0, 0, OS_PR_ALLOCATION, as, peekStack(1).param) {
-    void setAS(void* passThrough, uint16_t select) {
-        os_setAllocationStrategy((Heap*)passThrough, select);
-    }
     Heap* const heap = os_lookupHeap(peekStack(3).param);
     return strategyChanger(p, getAllocationStratNames, os_getAllocationStrategy(heap),
                            setAS, heap);

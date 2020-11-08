@@ -33,7 +33,7 @@
  * \param IDX ID of program whose setup is to be checked
  */
 #define checkRegisterInit(IDX) \
-    asm volatile(\
+    __asm__ volatile(\
                  "tst r0         \n\t"\
                  "brne 1f        \n\t"\
                  "tst r1         \n\t"\
