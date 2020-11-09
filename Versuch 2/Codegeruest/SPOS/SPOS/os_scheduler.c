@@ -58,23 +58,18 @@ ISR(TIMER2_COMPA_vect) __attribute__((naked));
  *  the processor to that process.
  */
 ISR(TIMER2_COMPA_vect) {
-	/*
-	os_processes[currentProc]->sp.as_ptr[0] = PC & 0b1111;
-	os_processes[currentProc]->sp.as_ptr[-1] = PC>>4;
-	os_processes[currentProc]->sp.as_ptr -= 2;
-	*/
 	saveContext();
 	
 	os_processes[currentProc].sp.as_int = SP;
 	
 	SP = BOTTOM_OF_ISR_STACK;
 	
-	os_processes[currentProc].checksum = os_getStackChecksum(currentProc);
-	
 	if (os_getInput() == 0b00001001) {
 		os_waitForNoInput();
 		os_taskManMain();
 	}
+
+	os_processes[currentProc].checksum = os_getStackChecksum(currentProc);
 	
 	os_processes[currentProc].state = OS_PS_READY;
 	
@@ -86,10 +81,11 @@ ISR(TIMER2_COMPA_vect) {
 		case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
 	}
 	
+	os_processes[currentProc].state = OS_PS_RUNNING;
+	
 	if (os_processes[currentProc].checksum != os_getStackChecksum(currentProc)) {
 		os_error("Stack Inconsitency");
 	}
-	os_processes[currentProc].state = OS_PS_RUNNING;
 	
 	SP = os_processes[currentProc].sp.as_int;
 	
@@ -221,12 +217,12 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	
 	StackPointer proccess_stack_bottom;
 	proccess_stack_bottom.as_int = PROCESS_STACK_BOTTOM(programID);
-	*(proccess_stack_bottom.as_ptr) = ((uint16_t) prog << 8 ) >> 8;
+	*(proccess_stack_bottom.as_ptr) = (uint8_t)(((uint16_t) prog << 8 ) >> 8);
 	proccess_stack_bottom.as_int--;
-	*(proccess_stack_bottom.as_ptr) = (uint16_t) prog >> 8;
+	*(proccess_stack_bottom.as_ptr) = (uint8_t)((uint16_t) prog >> 8);
 	proccess_stack_bottom.as_int--;
 	for(uint8_t i = 0; i < 33; i++) {
-		*proccess_stack_bottom.as_ptr = 0;
+		*(proccess_stack_bottom.as_ptr) = 0;
 		proccess_stack_bottom.as_int--;
 	}
 	os_processes[index].sp.as_int = proccess_stack_bottom.as_int;
@@ -396,9 +392,9 @@ void os_leaveCriticalSection(void) {
  */
 StackChecksum os_getStackChecksum(ProcessID pid) {
     StackChecksum sum = 0;
-	StackPointer i;
-	for (i.as_int = PROCESS_STACK_BOTTOM(pid); i.as_int > os_processes[pid].sp.as_int; i.as_int--) {
-		sum ^= *(i.as_ptr);
-	}
-	return sum;
+    StackPointer i;
+    for (i.as_int = PROCESS_STACK_BOTTOM(pid); i.as_int > os_processes[pid].sp.as_int; i.as_int--) {
+	    sum ^= *(i.as_ptr);
+    }
+    return sum;
 }
