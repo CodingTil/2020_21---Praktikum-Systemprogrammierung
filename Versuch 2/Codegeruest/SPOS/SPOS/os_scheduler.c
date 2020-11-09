@@ -71,7 +71,7 @@ ISR(TIMER2_COMPA_vect) {
 	
 	os_processes[currentProc].checksum = os_getStackChecksum(currentProc);
 	
-	if (os_getInput() == 0b10000001) {
+	if (os_getInput() == 0b00001001) {
 		os_waitForNoInput();
 		os_taskManMain();
 	}
@@ -87,7 +87,7 @@ ISR(TIMER2_COMPA_vect) {
 	}
 	
 	if (os_processes[currentProc].checksum != os_getStackChecksum(currentProc)) {
-		os_error("There is an inconsistancy in the stack.");
+		os_error("Stack Inconsitency");
 	}
 	os_processes[currentProc].state = OS_PS_RUNNING;
 	
@@ -198,7 +198,7 @@ ProgramID os_lookupProgramID(Program* program) {
  */
 ProcessID os_exec(ProgramID programID, Priority priority) {
 	os_enterCriticalSection();
-    uint8_t index; // 8-bit, because MAX_NUMBER_OF_PROCESSES is 8
+    ProcessID index;
 	for(index = 0; index < MAX_NUMBER_OF_PROCESSES; index++) {
 		if(os_processes[index].state == OS_PS_UNUSED) break;
 	}
@@ -397,7 +397,7 @@ void os_leaveCriticalSection(void) {
 StackChecksum os_getStackChecksum(ProcessID pid) {
     StackChecksum sum = 0;
 	StackPointer i;
-	for (i.as_int = PROCESS_STACK_BOTTOM(pid); i.as_int > os_processes[pid].sp.as_int; i.as_ptr--) {
+	for (i.as_int = PROCESS_STACK_BOTTOM(pid); i.as_int > os_processes[pid].sp.as_int; i.as_int--) {
 		sum ^= *(i.as_ptr);
 	}
 	return sum;
