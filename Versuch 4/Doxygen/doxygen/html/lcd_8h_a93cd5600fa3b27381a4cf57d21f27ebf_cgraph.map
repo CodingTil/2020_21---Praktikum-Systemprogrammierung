@@ -1,7 +1,0 @@
-<map id="lcd_writeChar" name="lcd_writeChar">
-<area shape="rect" id="node1" title="Write one character." alt="" coords="5,55,108,80"/>
-<area shape="rect" id="node2" href="$lcd_8h.html#ad235a86241458b1e7b8771688bfdaf9a" title="Clear all data from display." alt="" coords="156,5,231,31"/>
-<area shape="rect" id="node4" href="$lcd_8h.html#a016fe1471f1d20196b5ca3d2634c927a" title="Next output will be written to line 1." alt="" coords="157,55,231,80"/>
-<area shape="rect" id="node5" href="$lcd_8h.html#ad9ccaf30ea478fef726c058ff4ee7dd1" title="Next output will be written to line 2." alt="" coords="157,104,231,129"/>
-<area shape="rect" id="node3" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="279,55,383,80"/>
-</map>

@@ -1,8 +1,0 @@
-<map id="lcd_writeHexNibble" name="lcd_writeHexNibble">
-<area shape="rect" id="node1" title="Write a half&#45;byte (a nibble)" alt="" coords="5,55,141,80"/>
-<area shape="rect" id="node2" href="$lcd_8h.html#a93cd5600fa3b27381a4cf57d21f27ebf" title="Write one character." alt="" coords="189,55,292,80"/>
-<area shape="rect" id="node3" href="$lcd_8h.html#ad235a86241458b1e7b8771688bfdaf9a" title="Clear all data from display." alt="" coords="340,5,414,31"/>
-<area shape="rect" id="node5" href="$lcd_8h.html#a016fe1471f1d20196b5ca3d2634c927a" title="Next output will be written to line 1." alt="" coords="340,55,414,80"/>
-<area shape="rect" id="node6" href="$lcd_8h.html#ad9ccaf30ea478fef726c058ff4ee7dd1" title="Next output will be written to line 2." alt="" coords="340,104,414,129"/>
-<area shape="rect" id="node4" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="462,55,567,80"/>
-</map>

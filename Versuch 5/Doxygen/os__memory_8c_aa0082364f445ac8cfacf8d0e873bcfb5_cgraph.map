@@ -1,0 +1,5 @@
+<map id="setMapEntry" name="setMapEntry">
+<area shape="rect" id="node1" title="This function is used to set a heap map entry on a specific heap." alt="" coords="5,31,109,57"/>
+<area shape="rect" id="node2" href="$os__memory_8c.html#a211f98b56ba22e7ec073c1b09b35d0ff" title="Writes a value from 0x0 to 0xF to the higher nibble of the given address." alt="" coords="157,5,272,32"/>
+<area shape="rect" id="node3" href="$os__memory_8c.html#a79edcf2881c1b78d097495d05e7cec4f" title="Writes a value from 0x0 to 0xF to the lower nibble of the given address." alt="" coords="159,56,270,83"/>
+</map>

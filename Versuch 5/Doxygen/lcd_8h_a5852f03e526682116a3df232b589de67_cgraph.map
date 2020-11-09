@@ -1,0 +1,9 @@
+<map id="lcd_writeVoltage" name="lcd_writeVoltage">
+<area shape="rect" id="node1" title="Write a voltage with valueUpperBound as float voltage with voltUpperBound." alt="" coords="5,56,136,83"/>
+<area shape="rect" id="node2" href="$lcd_8h.html#a93cd5600fa3b27381a4cf57d21f27ebf" title="Write one character." alt="" coords="339,56,449,83"/>
+<area shape="rect" id="node7" href="$lcd_8h.html#a1415b995427583a289b6089b5e4785e5" title="Write a byte as a decimal number without prefixes." alt="" coords="184,81,291,108"/>
+<area shape="rect" id="node3" href="$lcd_8h.html#ad235a86241458b1e7b8771688bfdaf9a" title="Clear all data from display." alt="" coords="497,5,577,32"/>
+<area shape="rect" id="node5" href="$lcd_8h.html#a016fe1471f1d20196b5ca3d2634c927a" title="Next output will be written to line 1." alt="" coords="497,56,577,83"/>
+<area shape="rect" id="node6" href="$lcd_8h.html#ad9ccaf30ea478fef726c058ff4ee7dd1" title="Next output will be written to line 2." alt="" coords="497,107,577,133"/>
+<area shape="rect" id="node4" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="625,56,739,83"/>
+</map>

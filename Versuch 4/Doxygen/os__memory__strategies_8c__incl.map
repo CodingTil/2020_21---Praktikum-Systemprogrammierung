@@ -1,0 +1,17 @@
+<map id="os_memory_strategies.c" name="os_memory_strategies.c">
+<area shape="rect" id="node1" title=" " alt="" coords="255,5,438,32"/>
+<area shape="rect" id="node2" href="$os__memory__strategies_8h.html" title="Memory allocation library for the OS." alt="" coords="85,80,267,107"/>
+<area shape="rect" id="node9" href="$os__memory_8h.html" title="Library for OS memory management." alt="" coords="292,80,401,107"/>
+<area shape="rect" id="node14" href="$os__core_8h.html" title="Core of the OS." alt="" coords="465,80,549,107"/>
+<area shape="rect" id="node3" href="$os__memheap__drivers_8h.html" title="Drivers for OS heap management." alt="" coords="89,155,263,181"/>
+<area shape="rect" id="node4" href="$os__mem__drivers_8h.html" title="Drivers for OS memory management." alt="" coords="105,229,247,256"/>
+<area shape="rect" id="node6" href="$defines_8h.html" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="271,229,353,256"/>
+<area shape="rect" id="node8" title=" " alt="" coords="5,229,80,256"/>
+<area shape="rect" id="node5" title=" " alt="" coords="102,304,189,331"/>
+<area shape="rect" id="node7" href="$atmega644constants_8h.html" title="Constants for ATMega644 and EVA board. Defines several useful constants for the ATMega644." alt="" coords="213,304,384,331"/>
+<area shape="rect" id="node10" href="$os__scheduler_8h.html" title="Scheduling module for the OS." alt="" coords="339,155,458,181"/>
+<area shape="rect" id="node11" title=" " alt="" coords="504,304,587,331"/>
+<area shape="rect" id="node12" href="$os__process_8h.html" title="Struct specifying a process." alt="" coords="391,229,497,256"/>
+<area shape="rect" id="node13" title=" " alt="" coords="409,304,479,331"/>
+<area shape="rect" id="node15" title=" " alt="" coords="482,155,609,181"/>
+</map>

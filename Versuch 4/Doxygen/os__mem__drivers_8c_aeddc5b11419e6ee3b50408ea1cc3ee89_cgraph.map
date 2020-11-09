@@ -1,0 +1,6 @@
+<map id="set_operation_mode" name="set_operation_mode">
+<area shape="rect" id="node1" title="Sets the operation mode of the external SRAM." alt="" coords="5,56,160,83"/>
+<area shape="rect" id="node2" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="208,5,380,32"/>
+<area shape="rect" id="node3" href="$os__spi_8h.html#aa2ecb64d76ce8721fdab1a60e6061ebd" title="Performs a SPI send This method blocks until the data exchange is completed. Additionally,..." alt="" coords="243,56,345,83"/>
+<area shape="rect" id="node4" href="$os__mem__drivers_8c.html#a586e4c730a90597fa3b966b59204f8f3" title="Activates the external SRAM as SPI slave." alt="" coords="233,107,355,133"/>
+</map>

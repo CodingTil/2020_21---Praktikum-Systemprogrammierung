@@ -1,0 +1,4 @@
+<map id="lcd_registerCustomChar" name="lcd_registerCustomChar">
+<area shape="rect" id="node1" title="Register a customly designed character with the LCD." alt="" coords="5,5,184,32"/>
+<area shape="rect" id="node2" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="232,5,345,32"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="lcd_home" name="lcd_home">
+<area shape="rect" id="node1" title="Go to the first character in line." alt="" coords="5,5,91,32"/>
+<area shape="rect" id="node2" href="$lcd_8h.html#a338e21c2a6ba1044313b26bf868e13b2" title="Next output will be written at (row, column)" alt="" coords="139,5,216,32"/>
+<area shape="rect" id="node3" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="264,5,377,32"/>
+</map>

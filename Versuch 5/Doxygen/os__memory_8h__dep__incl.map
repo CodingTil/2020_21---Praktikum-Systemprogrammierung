@@ -1,0 +1,8 @@
+<map id="os_memory.h" name="os_memory.h">
+<area shape="rect" id="node1" title="Library for OS memory management." alt="" coords="349,5,458,32"/>
+<area shape="rect" id="node2" href="$os__memory_8c.html" title=" " alt="" coords="5,80,113,107"/>
+<area shape="rect" id="node3" href="$os__memory__strategies_8c.html" title=" " alt="" coords="137,80,320,107"/>
+<area shape="rect" id="node4" href="$os__scheduler_8c.html" title=" " alt="" coords="345,80,462,107"/>
+<area shape="rect" id="node5" href="$os__user__privileges_8h.html" title="User privileges specification used in part by the Taskman." alt="" coords="486,80,641,107"/>
+<area shape="rect" id="node6" href="$os__taskman_8c.html" title=" " alt="" coords="565,155,677,181"/>
+</map>

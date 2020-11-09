@@ -1,0 +1,4 @@
+<map id="SchedulingInformation" name="SchedulingInformation">
+<area shape="rect" id="node1" title="structure used to store specific scheduling informations such as a timeslice" alt="" coords="5,95,175,121"/>
+<area shape="rect" id="node2" href="$struct_process_queue.html" title="Ringbuffer for process queueing." alt="" coords="33,5,147,32"/>
+</map>

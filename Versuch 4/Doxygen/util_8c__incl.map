@@ -1,0 +1,14 @@
+<map id="util.c" name="util.c">
+<area shape="rect" id="node1" title=" " alt="" coords="433,5,488,32"/>
+<area shape="rect" id="node2" href="$util_8h.html" title="Little helpers that don&#39;t fit elsewhere." alt="" coords="171,155,225,181"/>
+<area shape="rect" id="node6" href="$atmega644constants_8h.html" title="Constants for ATMega644 and EVA board. Defines several useful constants for the ATMega644." alt="" coords="471,229,642,256"/>
+<area shape="rect" id="node7" href="$defines_8h.html" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="460,155,541,181"/>
+<area shape="rect" id="node8" href="$os__core_8h.html" title="Core of the OS." alt="" coords="352,155,436,181"/>
+<area shape="rect" id="node9" href="$os__input_8h.html" title="Input library for the OS." alt="" coords="5,155,95,181"/>
+<area shape="rect" id="node10" href="$lcd_8h.html" title="Library for LCD use." alt="" coords="274,80,327,107"/>
+<area shape="rect" id="node11" title=" " alt="" coords="617,80,688,107"/>
+<area shape="rect" id="node12" title=" " alt="" coords="713,80,827,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="79,229,149,256"/>
+<area shape="rect" id="node4" title=" " alt="" coords="174,229,257,256"/>
+<area shape="rect" id="node5" title=" " alt="" coords="281,229,408,256"/>
+</map>

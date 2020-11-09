@@ -1,4 +1,0 @@
-<map id="lcd_line2" name="lcd_line2">
-<area shape="rect" id="node1" title="Next output will be written to line 2." alt="" coords="5,5,79,31"/>
-<area shape="rect" id="node2" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="127,5,232,31"/>
-</map>

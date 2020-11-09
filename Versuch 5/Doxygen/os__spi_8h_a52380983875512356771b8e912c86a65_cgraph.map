@@ -1,0 +1,4 @@
+<map id="os_spi_receive" name="os_spi_receive">
+<area shape="rect" id="node1" title="Performs a SPI read This method blocks until the exchange is completed." alt="" coords="5,5,124,32"/>
+<area shape="rect" id="node2" href="$os__spi_8h.html#aa2ecb64d76ce8721fdab1a60e6061ebd" title="Performs a SPI send This method blocks until the data exchange is completed. Additionally,..." alt="" coords="172,5,273,32"/>
+</map>

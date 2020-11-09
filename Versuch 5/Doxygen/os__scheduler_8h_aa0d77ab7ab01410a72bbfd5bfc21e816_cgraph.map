@@ -1,0 +1,4 @@
+<map id="os_getNumberOfActiveProcs" name="os_getNumberOfActiveProcs">
+<area shape="rect" id="node1" title="returns the number of currently active processes" alt="" coords="5,5,213,32"/>
+<area shape="rect" id="node2" href="$os__scheduler_8c.html#aceff964882db0b41f7e2258ca4d16579" title="get a pointer to the process structure by process ID" alt="" coords="261,5,401,32"/>
+</map>

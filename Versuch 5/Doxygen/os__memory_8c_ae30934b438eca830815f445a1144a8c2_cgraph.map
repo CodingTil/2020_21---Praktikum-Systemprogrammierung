@@ -1,0 +1,8 @@
+<map id="os_freeOwnerRestricted" name="os_freeOwnerRestricted">
+<area shape="rect" id="node1" title=" " alt="" coords="5,56,184,83"/>
+<area shape="rect" id="node2" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="235,5,407,32"/>
+<area shape="rect" id="node3" href="$os__memory_8c.html#a292385f9ee19516237f51ab76c76405e" title="Get the address of the first byte of chunk." alt="" coords="232,56,411,83"/>
+<area shape="rect" id="node4" href="$os__memory_8c.html#a29ccc3e0a668c0be4b285bc74ef6d920" title="Function used to get the value of a single map entry, this is made public so the allocation strategie..." alt="" coords="459,81,585,108"/>
+<area shape="rect" id="node5" href="$os__memory_8c.html#ae420976ba4abbd069aff795935b9636c" title="Reads the value of the higher nibble of the given address." alt="" coords="633,56,748,83"/>
+<area shape="rect" id="node6" href="$os__memory_8c.html#a01bd9b56dbbeb0af404043ceca5c8818" title="Reads the value of the lower nibble of the given address." alt="" coords="635,107,746,133"/>
+</map>

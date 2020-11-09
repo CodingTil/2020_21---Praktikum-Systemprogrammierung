@@ -1,0 +1,9 @@
+<map id="moveChunk" name="moveChunk">
+<area shape="rect" id="node1" title=" " alt="" coords="5,81,105,108"/>
+<area shape="rect" id="node2" href="$os__memory_8c.html#a29ccc3e0a668c0be4b285bc74ef6d920" title="Function used to get the value of a single map entry, this is made public so the allocation strategie..." alt="" coords="153,56,280,83"/>
+<area shape="rect" id="node5" href="$os__memory_8c.html#aa0082364f445ac8cfacf8d0e873bcfb5" title="This function is used to set a heap map entry on a specific heap." alt="" coords="165,107,269,133"/>
+<area shape="rect" id="node3" href="$os__memory_8c.html#ae420976ba4abbd069aff795935b9636c" title="Reads the value of the higher nibble of the given address." alt="" coords="328,5,443,32"/>
+<area shape="rect" id="node4" href="$os__memory_8c.html#a01bd9b56dbbeb0af404043ceca5c8818" title="Reads the value of the lower nibble of the given address." alt="" coords="330,56,441,83"/>
+<area shape="rect" id="node6" href="$os__memory_8c.html#a211f98b56ba22e7ec073c1b09b35d0ff" title="Writes a value from 0x0 to 0xF to the higher nibble of the given address." alt="" coords="328,107,443,133"/>
+<area shape="rect" id="node7" href="$os__memory_8c.html#a79edcf2881c1b78d097495d05e7cec4f" title="Writes a value from 0x0 to 0xF to the lower nibble of the given address." alt="" coords="330,157,441,184"/>
+</map>
