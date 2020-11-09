@@ -1,213 +1,114 @@
 //-------------------------------------------------
-//          TestSuite: Init
+//          UnitTest: os_exec
 //-------------------------------------------------
 
 #include "lcd.h"
 #include "util.h"
 #include "os_core.h"
 #include "os_scheduler.h"
+#include "os_process.h"
+#include "os_input.h"
 
 #include <avr/interrupt.h>
+#include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-//! Preprocessor macro to make a string out of a value
-#define STRINGIFY(x) #x
-//! Preprocessor macro to make a string out of a define
-#define TOSTRING(x) STRINGIFY(x)
-//! Number of programs that are tested
-#define TEST_PROGRAMS (4)
-//! Base address for test-results. In Main-stack, because Main-stack is unused
-#define BASE_ADDRESS (0x1100-TEST_PROGRAMS)
-//! Address for register-buffer
-#define BUFFER_ADDRESS (BASE_ADDRESS-1)
-
-#if VERSUCH != 2
-    // You cannot run this with exercises after V2 due to the dynamic dispatcher.
-    #error Define 'VERSUCH' in defines.h needs to be '2'
-#endif
+//! This is a dummy program to exec during testing
+PROGRAM(9, DONTSTART) {
+    while (1);
+}
 
 /*!
- * Assembler macro testing all registers for correct initialization e.g. all
- * registers are equal to zero. The result of this checked will be stored at
- * the very end of the SRAM: The last bytes of the main-stack. If the test is
- * successful, 0x01 is stored, if it fails, 0xFF is stored.
- * \param IDX ID of program whose setup is to be checked
+ * Atomar funtion that prints a message on
+ * the LCD and starts an infinite loop
  */
-#define checkRegisterInit(IDX) \
-    __asm__ volatile(\
-                 "tst r0         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r1         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r2         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r3         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r4         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r5         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r6         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r7         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r8         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r9         \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r10        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r11        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r12        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r13        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r14        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r15        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r16        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r17        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r18        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r19        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r20        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r21        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r22        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r23        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r24        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r25        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r26        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r27        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r28        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r29        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r30        \n\t"\
-                 "brne 1f        \n\t"\
-                 "tst r31        \n\t"\
-                 "brne 1f        \n\t"\
-                 "breq 2f        \n\t"\
-                 "1: sts  "TOSTRING(BUFFER_ADDRESS)", r16 \n\t"\
-                 "   ldi  r16, 0xFF \n\t"\
-                 "   sts  "TOSTRING(BASE_ADDRESS+IDX-1)",  r16  \n\t"\
-                 "   jmp  3f        \n\t"\
-                 "2: sts  "TOSTRING(BUFFER_ADDRESS)", r16 \n\t"\
-                 "   ldi  r16, 0x01 \n\t"\
-                 "   sts  "TOSTRING(BASE_ADDRESS+IDX-1)", r16 \n\t"\
-                 "3: lds  r16, "TOSTRING(BUFFER_ADDRESS)" \n\t");
-
+void message(const char* text) {
+    cli();
+    lcd_clear();
+    lcd_writeString(text);
+    while (1);
+}
 
 /*!
- * Program that checks its registers, spawns another process
- * and which is responsible for any outputs on the lcd
+ * Prints an error if the given condition is false
  */
-PROGRAM(1, AUTOSTART) {
-    // Here is where the real action takes place
-    checkRegisterInit(1);
-
-    uint8_t success;
-    ProcessID execResult;
-
-    execResult = os_exec(3, DEFAULT_PRIORITY);
-
-    // Test if os_exec returned the correct value
-    if (execResult == INVALID_PROCESS) {
-        lcd_clear();
-        lcd_writeProgString(PSTR("ERROR:"));
-        lcd_line2();
-        lcd_writeProgString(PSTR("os_exec failed"));
-        while (1);
-    }
-
-    // This loop prints the table header
-    for (uint8_t i = 0; i < TEST_PROGRAMS; i++) {
-        lcd_writeDec(i + 1);
-        lcd_writeChar(' ');
-        if (i < TEST_PROGRAMS - 1) {
-            lcd_writeChar('|');
-        }
-    }
-
-    // In this loop we wait for all the processes that were automatically
-    // started or manually started to evaluate their registers.
-    for (;;) {
-        lcd_line2();
-        //Assume everything is good
-        success = 1;
-
-        for (uint8_t i = 0; i < TEST_PROGRAMS; i++) {
-            uint8_t value = *((uint8_t*)(BASE_ADDRESS + i));
-            switch (value) {
-                case 0xFF:
-                    lcd_writeProgString(PSTR("XX")); //XX is bad
-                    success = 0; //We failed at least once
-                    break;
-                case 0x01:
-                    lcd_writeProgString(PSTR("OK")); //OK is good
-                    break;
-                default:
-                    lcd_writeProgString(PSTR("  ")); //Not evaluated yet
-                    success = 0;
-            }
-            if (i < TEST_PROGRAMS - 1) {
-                lcd_writeChar('|');
-            }
-        }
-
-        // Check if any failures occured
-        if (success) {
-            delayMs(1000); // Give a chance to see the result
-            lcd_clear();
-            for (;;) {
-                lcd_writeProgString(PSTR("ALL TESTS PASSED"));
-                delayMs(1000);
-                lcd_clear();
-                delayMs(1000);
-            }
-        }
+void test_assert(bool condition, const char* error) {
+    if (!condition) {
+        message(error);
     }
 }
 
 /*!
- * Program that checks its registers and
- * spawns another process
+ * Unit test function which is declared with
+ * "__attribute__ ((constructor))" such that it
+ * is executed before the main function.
  */
-PROGRAM(2, AUTOSTART) {
-    checkRegisterInit(2);
-    // Test if os_exec returned the correct value
-    if (os_exec(4, DEFAULT_PRIORITY) == INVALID_PROCESS) {
-        lcd_clear();
-        lcd_writeProgString(PSTR("ERROR:"));
-        lcd_line2();
-        lcd_writeProgString(PSTR("os_exec failed"));
+void __attribute__((constructor)) test_os_exec() {
+    os_init_timer();
+    lcd_init();
+    os_initInput();
+	
+	delayMs(100);
+	lcd_clear();
+	lcd_writeString("Unittest os_exec");
+	delayMs(1000);
+
+    // Make relevant variables/functions known and clear values
+    extern Process os_processes[MAX_NUMBER_OF_PROCESSES];
+    memset(os_processes, 0, sizeof(os_processes));
+
+    extern Program* os_programs[MAX_NUMBER_OF_PROGRAMS];
+    memset(os_programs, 0, sizeof(os_programs));
+
+    extern void registerProgram9();
+    registerProgram9();
+
+    // Check that os_exec correctly returns INVALID_PROCESS when all process slots are in use
+    memset(os_processes, OS_PS_READY, sizeof(os_processes));
+    test_assert(os_exec(0, 1) == INVALID_PROCESS, "Expected invalid process");
+
+    // Clear slots again
+    memset(os_processes, 0, sizeof(os_processes));
+
+    // Check that os_exec returns INVALID_PROCESS for a non-existing program id
+    test_assert(os_exec(1, 1) == INVALID_PROCESS, "Expected invalid process");
+
+    /*
+     * Initialize stack of process 0 and the stack below with a mask
+     * so we can check after os_exec() if the registers were initialized
+     * and other stacks were not overwritten
+     */
+    uint16_t stackBottomProcess0 = PROCESS_STACK_BOTTOM(0);
+    for (uint8_t i = 0; i < 35; i++) {
+        // Write to the stack of process 0: 1, 2, 3, ...
+        os_processes[0].sp.as_int = stackBottomProcess0 - i;
+        *(os_processes[0].sp.as_ptr) = i + 1;
+
+        // Write to the stack below process 0 (scheduler stack): 1, 2, 3, ...
+        os_processes[0].sp.as_int = stackBottomProcess0 + i + 1;
+        *(os_processes[0].sp.as_ptr) = i + 1;
     }
-    for (;;);
-}
 
-/*!
- * Program that only checks its registers
- */
-PROGRAM(3, DONTSTART) {
-    checkRegisterInit(3);
-    for (;;);
-}
+    // Check that os_exec correctly initializes the process structure and stack and picks the correct slot
+    test_assert(os_exec(9, 10) == 0, "PID not 0");
+    test_assert(os_processes[0].priority == 10, "Priority not 10");
+    test_assert(os_processes[0].progID == 9, "ProgID not 9");
+    test_assert(os_processes[0].state == OS_PS_READY, "State not READY");
+    test_assert(os_processes[0].sp.as_int == (PROCESS_STACK_BOTTOM(0) - 35), "SP invalid");
 
-/*!
- * Program that only checks its registers
- */
-PROGRAM(4, DONTSTART) {
-    checkRegisterInit(4);
-    for (;;);
+    // Check that there are 33 zeros on the stack and the program function is written in the correct order on the stack
+    for (uint8_t i = 1; i <= 33; i++) {
+        test_assert(os_processes[0].sp.as_ptr[i] == 0, "Non-zero for register");
+    }
+    uint16_t program = (uint16_t)os_lookupProgramFunction(os_processes[0].progID);
+    test_assert(os_processes[0].sp.as_ptr[34] == (program >> 8), "Invalid hi byte");
+    test_assert(os_processes[0].sp.as_ptr[35] == (uint8_t)program, "Invalid lo byte");
+
+    for (uint8_t i = 1; i <= 35; i++) {
+        test_assert(os_processes[0].sp.as_ptr[35 + i] == i, "Written into wrong stack");
+    }
+
+    message("TEST PASSED");
+    // Note that the main function is not executed because message contains an infinite loop
 }

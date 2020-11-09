@@ -141,6 +141,8 @@ void os_errorPStr(char const* str) {
 	
 	cbi(SREG,7);
 	
+	lcd_clear();
+	
 	// print error message
 	lcd_writeProgString(str);
 	
@@ -152,10 +154,10 @@ void os_errorPStr(char const* str) {
 		}
 	}
 	
-	lcd_clear();
-	
 	// wait for release
 	os_waitForNoInput();
+	
+	lcd_clear();
 
 	if (interrupts) {
 		sbi(SREG, 7);
