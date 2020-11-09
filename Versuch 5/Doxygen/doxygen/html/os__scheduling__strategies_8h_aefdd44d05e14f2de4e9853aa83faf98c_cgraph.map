@@ -1,9 +1,0 @@
-<map id="os_resetProcessSchedulingInformation" name="os_resetProcessSchedulingInformation">
-<area shape="rect" id="node1" title="Used to reset the SchedulingInfo for one process." alt="" coords="5,123,192,161"/>
-<area shape="rect" id="node2" href="$os__scheduling__strategies_8c.html#aced6f1a87294783a6fa0d14cd72f96b0" title="Returns the default number of timeslices for a specific ProcessQueue/priority class." alt="" coords="240,5,422,31"/>
-<area shape="rect" id="node3" href="$os__scheduling__strategies_8c.html#abb8b69e7ca8b2c9fb5a9d77cdb493a84" title="Returns a pointer to the ProcessQueue with index queueID." alt="" coords="269,55,393,80"/>
-<area shape="rect" id="node4" href="$os__scheduling__strategies_8c.html#a95d2cb3869eb1152b7f3a1e3e42f24e5" title="Maps a process&#45;priority to a priority class." alt="" coords="258,104,404,129"/>
-<area shape="rect" id="node5" href="$os__scheduling__strategies_8c.html#afec6e9db0f495ab73d7b28f2158d8c5f" title="Function that removes the given ProcessID from the ProcessQueues." alt="" coords="265,153,397,179"/>
-<area shape="rect" id="node6" href="$os__scheduler_8c.html#aceff964882db0b41f7e2258ca4d16579" title="get a pointer to the process structure by process ID" alt="" coords="265,203,397,228"/>
-<area shape="rect" id="node7" href="$os__scheduling__strategies_8c.html#a3ae034c3452457a90dd7c074ca5c3aaf" title="Appends a ProcessID to the given ProcessQueue." alt="" coords="272,252,390,277"/>
-</map>

@@ -1,0 +1,6 @@
+<map id="os_dispatcher" name="os_dispatcher">
+<area shape="rect" id="node1" title=" " alt="" coords="5,31,117,57"/>
+<area shape="rect" id="node2" href="$os__scheduler_8c.html#ac495981d4e6fbcbc04d381dd69bf62d6" title="used to kill a running process and clear the corresponding process slot" alt="" coords="232,5,296,32"/>
+<area shape="rect" id="node4" href="$os__scheduler_8c.html#a2c5878b69a424926a06297469c40f225" title="looks up the function of a program with the passed ID (index) and returns NULL on failure" alt="" coords="165,56,363,83"/>
+<area shape="rect" id="node3" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="411,5,583,32"/>
+</map>

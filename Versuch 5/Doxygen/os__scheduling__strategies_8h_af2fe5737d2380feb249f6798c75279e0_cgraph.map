@@ -1,0 +1,4 @@
+<map id="pqueue_dropFirst" name="pqueue_dropFirst">
+<area shape="rect" id="node1" title="Drops the first ProcessID of the given ProcessQueue." alt="" coords="5,5,140,32"/>
+<area shape="rect" id="node2" href="$os__scheduling__strategies_8c.html#a7e2b52989067e26dde40df65a79ab934" title="Checks whether there is next a ProcessID." alt="" coords="188,5,319,32"/>
+</map>

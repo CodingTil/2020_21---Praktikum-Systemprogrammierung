@@ -1,0 +1,12 @@
+<map id="lcd_write32bitHex" name="lcd_write32bitHex">
+<area shape="rect" id="node1" title="Write a 32 bit number." alt="" coords="5,56,145,83"/>
+<area shape="rect" id="node2" href="$lcd_8h.html#a93cd5600fa3b27381a4cf57d21f27ebf" title="Write one character." alt="" coords="764,56,875,83"/>
+<area shape="rect" id="node7" href="$lcd_8h.html#a1415b995427583a289b6089b5e4785e5" title="Write a byte as a decimal number without prefixes." alt="" coords="397,56,503,83"/>
+<area shape="rect" id="node8" href="$lcd_8h.html#a5e1c53d859a7570ae0f9b649cd89617d" title="Write one hexadecimal word." alt="" coords="193,107,333,133"/>
+<area shape="rect" id="node3" href="$lcd_8h.html#ad235a86241458b1e7b8771688bfdaf9a" title="Clear all data from display." alt="" coords="923,5,1003,32"/>
+<area shape="rect" id="node5" href="$lcd_8h.html#a016fe1471f1d20196b5ca3d2634c927a" title="Next output will be written to line 1." alt="" coords="923,56,1003,83"/>
+<area shape="rect" id="node6" href="$lcd_8h.html#ad9ccaf30ea478fef726c058ff4ee7dd1" title="Next output will be written to line 2." alt="" coords="923,107,1003,133"/>
+<area shape="rect" id="node4" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="1051,56,1164,83"/>
+<area shape="rect" id="node9" href="$lcd_8h.html#ac474e7328f850a8b9af9de57df93e2f3" title="Write one hexadecimal byte." alt="" coords="381,107,519,133"/>
+<area shape="rect" id="node10" href="$lcd_8h.html#a01b53b89b0c268d2324d86f3fe33405d" title="Write a half&#45;byte (a nibble)" alt="" coords="567,107,716,133"/>
+</map>

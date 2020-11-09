@@ -1,0 +1,4 @@
+<map id="os_setSchedulingStrategy" name="os_setSchedulingStrategy">
+<area shape="rect" id="node1" title="sets the scheduling strategy" alt="" coords="5,5,196,32"/>
+<area shape="rect" id="node2" href="$os__scheduling__strategies_8c.html#af63ac803dcc59d7fe7f363c1cf6d5b66" title="Used to reset the SchedulingInfo for a strategy." alt="" coords="244,5,468,32"/>
+</map>

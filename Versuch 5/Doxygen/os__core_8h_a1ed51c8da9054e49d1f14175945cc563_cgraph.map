@@ -1,0 +1,11 @@
+<map id="os_errorPStr" name="os_errorPStr">
+<area shape="rect" id="node1" title="Shows error on display and terminates program." alt="" coords="5,81,107,108"/>
+<area shape="rect" id="node2" href="$lcd_8h.html#ad235a86241458b1e7b8771688bfdaf9a" title="Clear all data from display." alt="" coords="509,5,589,32"/>
+<area shape="rect" id="node4" href="$lcd_8h.html#a12c915502d2f5eb5bca74e503ad88669" title="Write char PROGMEM* string." alt="" coords="155,56,303,83"/>
+<area shape="rect" id="node8" href="$os__input_8c.html#a137e8a89b9524ec791fffccedb04fef0" title="Refreshes the button states." alt="" coords="357,132,455,159"/>
+<area shape="rect" id="node9" href="$os__input_8c.html#ad2eb8a84abf9fcfe88654e1118b351f5" title="Waits for all buttons to be released." alt="" coords="157,157,300,184"/>
+<area shape="rect" id="node3" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="637,56,751,83"/>
+<area shape="rect" id="node5" href="$lcd_8h.html#a93cd5600fa3b27381a4cf57d21f27ebf" title="Write one character." alt="" coords="351,56,461,83"/>
+<area shape="rect" id="node6" href="$lcd_8h.html#a016fe1471f1d20196b5ca3d2634c927a" title="Next output will be written to line 1." alt="" coords="509,56,589,83"/>
+<area shape="rect" id="node7" href="$lcd_8h.html#ad9ccaf30ea478fef726c058ff4ee7dd1" title="Next output will be written to line 2." alt="" coords="509,107,589,133"/>
+</map>

@@ -1,0 +1,4 @@
+<map id="pqueue_getFirst" name="pqueue_getFirst">
+<area shape="rect" id="node1" title="Returns the first ProcessID of the given ProcessQueue." alt="" coords="5,5,132,32"/>
+<area shape="rect" id="node2" href="$os__scheduling__strategies_8c.html#a7e2b52989067e26dde40df65a79ab934" title="Checks whether there is next a ProcessID." alt="" coords="180,5,311,32"/>
+</map>

@@ -1,0 +1,14 @@
+<map id="os_mem_drivers.h" name="os_mem_drivers.h">
+<area shape="rect" id="node1" title="Drivers for OS memory management." alt="" coords="358,5,501,32"/>
+<area shape="rect" id="node2" href="$os__memheap__drivers_8h.html" title="Drivers for OS heap management." alt="" coords="217,80,391,107"/>
+<area shape="rect" id="node8" href="$os__memory_8h.html" title="Library for OS memory management." alt="" coords="309,155,419,181"/>
+<area shape="rect" id="node12" href="$os__mem__drivers_8c.html" title=" " alt="" coords="467,80,608,107"/>
+<area shape="rect" id="node3" href="$os__core_8c.html" title=" " alt="" coords="203,155,285,181"/>
+<area shape="rect" id="node4" href="$os__memheap__drivers_8c.html" title=" " alt="" coords="716,229,889,256"/>
+<area shape="rect" id="node5" href="$os__memory__strategies_8h.html" title="Memory allocation library for the OS." alt="" coords="507,155,690,181"/>
+<area shape="rect" id="node9" href="$os__scheduler_8c.html" title=" " alt="" coords="5,229,123,256"/>
+<area shape="rect" id="node6" href="$os__memory_8c.html" title=" " alt="" coords="583,229,691,256"/>
+<area shape="rect" id="node7" href="$os__memory__strategies_8c.html" title=" " alt="" coords="377,229,559,256"/>
+<area shape="rect" id="node10" href="$os__user__privileges_8h.html" title="User privileges specification used in part by the Taskman." alt="" coords="147,229,301,256"/>
+<area shape="rect" id="node11" href="$os__taskman_8c.html" title=" " alt="" coords="225,304,337,331"/>
+</map>

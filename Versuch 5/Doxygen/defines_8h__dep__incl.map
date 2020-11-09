@@ -1,0 +1,19 @@
+<map id="defines.h" name="defines.h">
+<area shape="rect" id="node1" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="730,5,811,32"/>
+<area shape="rect" id="node2" href="$lcd_8h.html" title="Library for LCD use." alt="" coords="144,80,197,107"/>
+<area shape="rect" id="node3" href="$os__core_8c.html" title=" " alt="" coords="208,155,291,181"/>
+<area shape="rect" id="node5" href="$os__taskman_8c.html" title=" " alt="" coords="828,304,940,331"/>
+<area shape="rect" id="node6" href="$util_8c.html" title=" " alt="" coords="27,155,82,181"/>
+<area shape="rect" id="node7" href="$os__scheduler_8h.html" title="Scheduling module for the OS." alt="" coords="813,80,931,107"/>
+<area shape="rect" id="node8" href="$os__mem__drivers_8c.html" title=" " alt="" coords="1181,155,1323,181"/>
+<area shape="rect" id="node12" href="$os__user__privileges_8h.html" title="User privileges specification used in part by the Taskman." alt="" coords="807,229,961,256"/>
+<area shape="rect" id="node13" href="$os__scheduling__strategies_8h.html" title="Scheduling library for the OS." alt="" coords="959,155,1158,181"/>
+<area shape="rect" id="node14" href="$os__scheduling__strategies_8c.html" title=" " alt="" coords="1107,229,1304,256"/>
+<area shape="rect" id="node15" href="$os__memheap__drivers_8h.html" title="Drivers for OS heap management." alt="" coords="455,80,630,107"/>
+<area shape="rect" id="node16" href="$os__memheap__drivers_8c.html" title=" " alt="" coords="77,229,251,256"/>
+<area shape="rect" id="node4" href="$os__scheduler_8c.html" title=" " alt="" coords="665,229,783,256"/>
+<area shape="rect" id="node9" href="$os__memory_8h.html" title="Library for OS memory management." alt="" coords="573,155,683,181"/>
+<area shape="rect" id="node10" href="$os__memory_8c.html" title=" " alt="" coords="275,229,383,256"/>
+<area shape="rect" id="node11" href="$os__memory__strategies_8c.html" title=" " alt="" coords="407,229,590,256"/>
+<area shape="rect" id="node17" href="$os__memory__strategies_8h.html" title="Memory allocation library for the OS." alt="" coords="366,155,549,181"/>
+</map>

@@ -1,0 +1,13 @@
+<map id="os_process.h" name="os_process.h">
+<area shape="rect" id="node1" title="Struct specifying a process." alt="" coords="702,5,808,32"/>
+<area shape="rect" id="node2" href="$os__scheduler_8h.html" title="Scheduling module for the OS." alt="" coords="484,80,602,107"/>
+<area shape="rect" id="node9" href="$os__taskman_8c.html" title=" " alt="" coords="271,304,383,331"/>
+<area shape="rect" id="node3" href="$os__mem__drivers_8c.html" title=" " alt="" coords="472,155,614,181"/>
+<area shape="rect" id="node4" href="$os__memory_8h.html" title="Library for OS memory management." alt="" coords="339,155,448,181"/>
+<area shape="rect" id="node7" href="$os__scheduler_8c.html" title=" " alt="" coords="592,229,710,256"/>
+<area shape="rect" id="node8" href="$os__user__privileges_8h.html" title="User privileges specification used in part by the Taskman." alt="" coords="23,229,178,256"/>
+<area shape="rect" id="node10" href="$os__scheduling__strategies_8h.html" title="Scheduling library for the OS." alt="" coords="688,155,886,181"/>
+<area shape="rect" id="node5" href="$os__memory_8c.html" title=" " alt="" coords="202,229,310,256"/>
+<area shape="rect" id="node6" href="$os__memory__strategies_8c.html" title=" " alt="" coords="334,229,517,256"/>
+<area shape="rect" id="node11" href="$os__scheduling__strategies_8c.html" title=" " alt="" coords="734,229,931,256"/>
+</map>

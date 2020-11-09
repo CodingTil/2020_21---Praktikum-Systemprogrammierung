@@ -1,0 +1,12 @@
+<map id="os_sh_read" name="os_sh_read">
+<area shape="rect" id="node1" title="Function used to read from shared memory." alt="" coords="5,81,100,108"/>
+<area shape="rect" id="node2" href="$os__memory_8c.html#af4b11f1dd58f3cec9668a6be98101be4" title="Get the size of a chunk on a given address." alt="" coords="345,5,478,32"/>
+<area shape="rect" id="node3" href="$os__memory_8c.html#a292385f9ee19516237f51ab76c76405e" title="Get the address of the first byte of chunk." alt="" coords="545,81,724,108"/>
+<area shape="rect" id="node7" href="$os__memory_8c.html#ab9125c3a1039f2e78695c58e2ea677b4" title="Function that should be private but is used by some Testtasks." alt="" coords="163,107,263,133"/>
+<area shape="rect" id="node10" href="$os__memory_8c.html#ab6c191363e0b7832ece936079d0aabf0" title="Function that should be private but is used by some Testtasks." alt="" coords="148,157,277,184"/>
+<area shape="rect" id="node4" href="$os__memory_8c.html#a29ccc3e0a668c0be4b285bc74ef6d920" title="Function used to get the value of a single map entry, this is made public so the allocation strategie..." alt="" coords="772,81,899,108"/>
+<area shape="rect" id="node5" href="$os__memory_8c.html#ae420976ba4abbd069aff795935b9636c" title="Reads the value of the higher nibble of the given address." alt="" coords="947,56,1061,83"/>
+<area shape="rect" id="node6" href="$os__memory_8c.html#a01bd9b56dbbeb0af404043ceca5c8818" title="Reads the value of the lower nibble of the given address." alt="" coords="949,107,1059,133"/>
+<area shape="rect" id="node8" href="$os__memory_8c.html#ab493cf6ec58f933b4751b0d2a2f77c4a" title=" " alt="" coords="341,208,482,235"/>
+<area shape="rect" id="node9" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="325,157,497,184"/>
+</map>

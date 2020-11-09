@@ -1,0 +1,4 @@
+<map id="os_waitForNoInput" name="os_waitForNoInput">
+<area shape="rect" id="node1" title="Waits for all buttons to be released." alt="" coords="5,5,148,32"/>
+<area shape="rect" id="node2" href="$os__input_8c.html#a137e8a89b9524ec791fffccedb04fef0" title="Refreshes the button states." alt="" coords="196,5,295,32"/>
+</map>

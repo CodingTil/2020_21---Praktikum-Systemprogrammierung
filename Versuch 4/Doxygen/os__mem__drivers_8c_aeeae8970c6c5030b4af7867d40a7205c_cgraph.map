@@ -1,0 +1,4 @@
+<map id="transfer_address" name="transfer_address">
+<area shape="rect" id="node1" title="Transmitts a 24bit memory address to the external SRAM." alt="" coords="5,5,136,32"/>
+<area shape="rect" id="node2" href="$os__spi_8h.html#aa2ecb64d76ce8721fdab1a60e6061ebd" title="Performs a SPI send This method blocks until the data exchange is completed. Additionally,..." alt="" coords="184,5,285,32"/>
+</map>

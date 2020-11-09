@@ -1,0 +1,5 @@
+<map id="lcd_forward" name="lcd_forward">
+<area shape="rect" id="node1" title="Go one character right (does not remove the character)" alt="" coords="5,5,104,32"/>
+<area shape="rect" id="node2" href="$lcd_8h.html#a338e21c2a6ba1044313b26bf868e13b2" title="Next output will be written at (row, column)" alt="" coords="152,5,229,32"/>
+<area shape="rect" id="node3" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="277,5,391,32"/>
+</map>

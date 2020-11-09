@@ -1,9 +1,0 @@
-<map id="lcd.h" name="lcd.h">
-<area shape="rect" id="node1" title="Library for LCD use." alt="" coords="164,5,213,31"/>
-<area shape="rect" id="node2" title=" " alt="" coords="5,152,81,177"/>
-<area shape="rect" id="node3" title=" " alt="" coords="104,152,169,177"/>
-<area shape="rect" id="node4" title=" " alt="" coords="193,152,309,177"/>
-<area shape="rect" id="node5" href="$defines_8h.html" title="Simple definitions and assembler&#45;macros, mostly 8/16&#45;Bit values." alt="" coords="331,79,406,104"/>
-<area shape="rect" id="node7" href="$util_8h.html" title="Little helpers that don&#39;t fit elsewhere." alt="" coords="164,79,213,104"/>
-<area shape="rect" id="node6" href="$atmega644constants_8h.html" title="Constants for ATMega644 and EVA board. Defines several useful constants for the ATMega644." alt="" coords="333,152,489,177"/>
-</map>

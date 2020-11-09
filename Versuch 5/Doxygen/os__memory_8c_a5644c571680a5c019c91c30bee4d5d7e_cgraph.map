@@ -1,0 +1,6 @@
+<map id="os_malloc" name="os_malloc">
+<area shape="rect" id="node1" title="Function used to allocate private memory." alt="" coords="5,31,93,57"/>
+<area shape="rect" id="node2" href="$os__scheduler_8c.html#a917313bbbb324677f26dfdf2ad80de3d" title="returns the currently active process" alt="" coords="141,5,283,32"/>
+<area shape="rect" id="node3" href="$os__memory_8c.html#a5898dee5872eb916998a582be5531506" title=" " alt="" coords="147,56,277,83"/>
+<area shape="rect" id="node4" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="331,56,503,83"/>
+</map>

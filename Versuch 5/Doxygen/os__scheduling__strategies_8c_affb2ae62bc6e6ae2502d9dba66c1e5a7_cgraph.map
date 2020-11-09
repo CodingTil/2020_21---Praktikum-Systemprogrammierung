@@ -1,0 +1,7 @@
+<map id="pqueue_removePID" name="pqueue_removePID">
+<area shape="rect" id="node1" title=" " alt="" coords="5,81,155,108"/>
+<area shape="rect" id="node2" href="$os__scheduling__strategies_8c.html#a3ae034c3452457a90dd7c074ca5c3aaf" title="Appends a ProcessID to the given ProcessQueue." alt="" coords="207,5,333,32"/>
+<area shape="rect" id="node3" href="$os__scheduling__strategies_8c.html#af2fe5737d2380feb249f6798c75279e0" title="Drops the first ProcessID of the given ProcessQueue." alt="" coords="203,56,337,83"/>
+<area shape="rect" id="node4" href="$os__scheduling__strategies_8c.html#a7e2b52989067e26dde40df65a79ab934" title="Checks whether there is next a ProcessID." alt="" coords="385,107,516,133"/>
+<area shape="rect" id="node5" href="$os__scheduling__strategies_8c.html#ad6b26362a90e689ff188d2492a616eef" title="Returns the first ProcessID of the given ProcessQueue." alt="" coords="207,157,333,184"/>
+</map>

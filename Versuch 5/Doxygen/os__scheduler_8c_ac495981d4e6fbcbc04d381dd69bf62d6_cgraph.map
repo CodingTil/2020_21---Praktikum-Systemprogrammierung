@@ -1,0 +1,4 @@
+<map id="os_kill" name="os_kill">
+<area shape="rect" id="node1" title="used to kill a running process and clear the corresponding process slot" alt="" coords="5,5,69,32"/>
+<area shape="rect" id="node2" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="117,5,289,32"/>
+</map>

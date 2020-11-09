@@ -1,0 +1,6 @@
+<map id="readSRAM_external" name="readSRAM_external">
+<area shape="rect" id="node1" title="Private function to read a single byte to the external SRAM It will not check if its call is valid...." alt="" coords="5,56,156,83"/>
+<area shape="rect" id="node2" href="$os__scheduler_8c.html#a9d27b2dbf45ce6648916ed5ceb0a38df" title="enters a critical code section" alt="" coords="204,5,376,32"/>
+<area shape="rect" id="node3" href="$os__spi_8h.html#aa2ecb64d76ce8721fdab1a60e6061ebd" title="Performs a SPI send This method blocks until the data exchange is completed. Additionally,..." alt="" coords="239,56,341,83"/>
+<area shape="rect" id="node4" href="$os__mem__drivers_8c.html#a586e4c730a90597fa3b966b59204f8f3" title="Activates the external SRAM as SPI slave." alt="" coords="229,107,351,133"/>
+</map>

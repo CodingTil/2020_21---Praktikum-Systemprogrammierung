@@ -1,7 +1,0 @@
-<map id="lcd.h" name="lcd.h">
-<area shape="rect" id="node1" title="Library for LCD use." alt="" coords="204,5,254,31"/>
-<area shape="rect" id="node2" href="$os__core_8c.html" title=" " alt="" coords="5,79,84,104"/>
-<area shape="rect" id="node3" href="$os__scheduler_8c.html" title=" " alt="" coords="108,79,219,104"/>
-<area shape="rect" id="node4" href="$os__taskman_8c.html" title=" " alt="" coords="242,79,346,104"/>
-<area shape="rect" id="node5" href="$util_8c.html" title=" " alt="" coords="370,79,419,104"/>
-</map>

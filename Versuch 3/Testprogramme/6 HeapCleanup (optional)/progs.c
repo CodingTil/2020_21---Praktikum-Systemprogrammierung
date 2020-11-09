@@ -53,6 +53,8 @@
 volatile ProcessID allocProc = 0;
 //! This variable is set to 1 when the small allocation process is finished
 volatile uint8_t   allocProcReadyToDie = 0;
+//! This variable is set to true when the test program finishes
+bool terminated = false;
 
 /*!
  * Prints an error message together with a corresponding heap on which the
@@ -122,7 +124,23 @@ void hc_waitForFreeProcSlot(void) {
 }
 
 //! Main test routine. Executes the single phases.
-PROGRAM(1, AUTOSTART) {
+PROGRAM(1, AUTOSTART) {    
+    // Init Timeout Timer 1
+    // CTC mode
+    TCCR1A &= ~(1 << WGM10);
+    TCCR1A &= ~(1 << WGM11);
+    TCCR1B |= (1 << WGM12);
+    TCCR1B &= ~(1 << WGM13);
+
+	// set prescaler to 1024
+	TCCR1B |=  (1 << CS12) | (1 << CS10);
+	TCCR1B &= ~(1 << CS11);
+
+	// set compare register -> match every 1s
+	OCR1A = 19531;
+
+	// enable timer
+	TIMSK1 |= (1 << OCIE1A);
     uint8_t i;
 
     // Check if heaps are defined correctly
@@ -360,6 +378,7 @@ PROGRAM(1, AUTOSTART) {
 
 
     // SUCCESS
+    terminated = true;
     lcd_clear();
     lcd_writeProgString(PSTR("ALL TESTS PASSED"));
 	lcd_line2();
@@ -408,4 +427,16 @@ PROGRAM(SMALL_ALLOC_PROG, DONTSTART) {
     }
     allocProcReadyToDie = 1;
     while (1) {}
+}
+
+/*
+ *	Timeout ISR
+ */
+ISR(TIMER1_COMPA_vect)
+{
+    // counts seconds
+    static int16_t timeout_counter = 0;
+    if(++timeout_counter >= 900 && !terminated){
+        hc_error(PSTR("Test timed out after 15 minutes!"));
+    }
 }

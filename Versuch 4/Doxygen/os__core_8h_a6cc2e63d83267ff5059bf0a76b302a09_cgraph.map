@@ -1,0 +1,19 @@
+<map id="os_init" name="os_init">
+<area shape="rect" id="node1" title="Initializes OS." alt="" coords="5,259,71,285"/>
+<area shape="rect" id="node2" href="$os__mem__drivers_8c.html#a7b4035516f05b473e63dcccfdcbb5ca3" title="Function that needs to be called once in order to initialise all used memories such as the internal S..." alt="" coords="119,107,268,133"/>
+<area shape="rect" id="node3" href="$lcd_8h.html#a6842775ba83d166f02b8fef8bb63b1e6" title="Initialize LCD." alt="" coords="337,132,406,159"/>
+<area shape="rect" id="node10" href="$lcd_8h.html#a12c915502d2f5eb5bca74e503ad88669" title="Write char PROGMEM* string." alt="" coords="119,208,267,235"/>
+<area shape="rect" id="node14" href="$os__core_8c.html#a6e2cb65995e0266255572244baf860f3" title="Initializes timers." alt="" coords="140,259,247,285"/>
+<area shape="rect" id="node15" href="$os__memheap__drivers_8c.html#a1735427417a3f887402129714eadcba0" title="Initialises all Heaps." alt="" coords="140,309,247,336"/>
+<area shape="rect" id="node16" href="$os__input_8c.html#a47d043a57e87cffbb40be4e33609175a" title="Initializes PIN and PORT for input." alt="" coords="144,360,243,387"/>
+<area shape="rect" id="node17" href="$os__core_8c.html#afcd3b8ded93499847533d52c2b08772a" title=" " alt="" coords="129,411,258,437"/>
+<area shape="rect" id="node4" href="$util_8c.html#abbd75ad6fe1f975a544131cdf8d71287" title="Waits for some milliseconds." alt="" coords="525,5,603,32"/>
+<area shape="rect" id="node6" href="$lcd_8h.html#ad235a86241458b1e7b8771688bfdaf9a" title="Clear all data from display." alt="" coords="524,208,604,235"/>
+<area shape="rect" id="node7" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="707,208,821,235"/>
+<area shape="rect" id="node8" href="$lcd_8h.html#aca4a9d0155c7c7ec0c5ce4c2f5347847" title="Enable LCD." alt="" coords="518,107,610,133"/>
+<area shape="rect" id="node9" href="$lcd_8h.html#a9145ad7b7dd6a45f9a84cf3d424c5cf2" title="Register a customly designed character with the LCD." alt="" coords="475,157,653,184"/>
+<area shape="rect" id="node5" href="$util_8c.html#a31a009dd17764a744deeda855ba66954" title=" " alt="" coords="701,5,827,32"/>
+<area shape="rect" id="node11" href="$lcd_8h.html#a93cd5600fa3b27381a4cf57d21f27ebf" title="Write one character." alt="" coords="316,233,427,260"/>
+<area shape="rect" id="node12" href="$lcd_8h.html#a016fe1471f1d20196b5ca3d2634c927a" title="Next output will be written to line 1." alt="" coords="524,259,604,285"/>
+<area shape="rect" id="node13" href="$lcd_8h.html#ad9ccaf30ea478fef726c058ff4ee7dd1" title="Next output will be written to line 2." alt="" coords="524,309,604,336"/>
+</map>
