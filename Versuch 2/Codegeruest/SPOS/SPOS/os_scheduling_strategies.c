@@ -125,7 +125,7 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 	}
 	
 	schedulingInfo.age[max_age] = processes[max_age].priority;
-		
+
 	return max_age;
 }
 

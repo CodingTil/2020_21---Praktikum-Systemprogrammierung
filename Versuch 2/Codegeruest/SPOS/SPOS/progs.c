@@ -1,508 +1,239 @@
 //-------------------------------------------------
-//          TestSuite: Scheduling Strategien
+//          TestSuite: Button/Error Test
 //-------------------------------------------------
 
 #include "lcd.h"
 #include "util.h"
+#include "os_core.h"
 #include "os_scheduler.h"
-#include "os_scheduling_strategies.h"
+#include "os_input.h"
+
 #include <avr/interrupt.h>
-#include <util/delay.h>
+#include <avr/pgmspace.h>
 
-#define PHASE_1 1
-#define PHASE_2 1
-#define PHASE_3 1
-#define PHASE_4 1
+/************************************************************************/
+/* Defines                                                              */
+/************************************************************************/
 
+//! Output delay after writing strings to the LCD
+#define DELAY 2000
+//! Halts execution of program
+#define HALT  do{}while(1)
 
-volatile uint8_t capture[32];
-volatile uint8_t i = 0;
+//! Set this to 1 to check the button functionality
+#define PHASE_BUTTONS        (1)
+//! Set this to 1 to check the os_error functionality
+#define PHASE_ERROR          (1)
 
-#define LCD_DELAY 2000
-#define NUM_EXECUTIONS_SCHEDULABILITY 30
+/************************************************************************/
+/* Forward declarations                                                 */
+/************************************************************************/
 
-ISR(TIMER2_COMPA_vect);
+//! Prints an error message on the LCD. Then halts.
+void be_throwError(char const* str);
+//! Tests one button.
+void be_testBtn(uint8_t btnNr);
+//! Prints phase information to the LCD.
+void be_showPhase(uint8_t i, char const* name);
+//! Prints OK for the phase message.
+void be_phaseSuccess(void);
 
-// Array containing the correct output values for all four scheduling strategies.
-const uint8_t scheduling[4][32] PROGMEM  =  {
-    {1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2}, // Even
-    {1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 2, 2, 2, 2, 2, 3}, // Round Robin
-    {1, 3, 3, 3, 2, 3, 3, 3, 2, 3, 1, 3, 2, 3, 3, 3, 2, 3, 3, 1, 3, 2, 3, 3, 3, 2, 3, 3, 1, 3, 2, 3}, // Inactive Aging
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1} // Run To Completion
-};
+/************************************************************************/
+/* Public variables                                                     */
+/************************************************************************/
 
+// Variable to count the number of timer interrupts that occurred
+static volatile uint16_t count = 0;
 
-//! Tests if strategy is implemented (default return is 0)
-uint8_t strategyImplemented() {
-    ProcessID nextId = 0;
-    Process processes[MAX_NUMBER_OF_PROCESSES];
-
-    // Copy current os_processes
-    for (uint8_t i = 0; i < MAX_NUMBER_OF_PROCESSES; ++i) {
-        processes[i] = *os_getProcessSlot(i);
-    }
-
-    // Request next processId without changing anything
-    // Current process is always 1
-    switch (os_getSchedulingStrategy()) {
-        case OS_SS_EVEN:
-            nextId = os_Scheduler_Even(processes, os_getCurrentProc());
-            break;
-        case OS_SS_RANDOM:
-            nextId = os_Scheduler_Random(processes, os_getCurrentProc());
-            break;
-        case OS_SS_ROUND_ROBIN:
-            nextId = os_Scheduler_RoundRobin(processes, os_getCurrentProc());
-            break;
-        case OS_SS_INACTIVE_AGING:
-            nextId = os_Scheduler_InactiveAging(processes, os_getCurrentProc());
-            break;
-        case OS_SS_RUN_TO_COMPLETION:
-            nextId = os_Scheduler_RunToCompletion(processes, os_getCurrentProc());
-            break;
-        default:
-            lcd_clear();
-            lcd_writeProgString(PSTR("Invalid strategy"));
-            while (1) {}
-    }
-
-    os_resetSchedulingInformation(os_getSchedulingStrategy());
-
-    if (nextId == 0) {
-        return 0;
-    } else {
-        return 1;
+// Counts the number of interrupts that occured
+ISR(TIMER1_COMPA_vect) {
+    count++;
+    if (count > 5) {
+        be_throwError(PSTR("Interrupted"));
     }
 }
 
-/*!
- *  Function that sets the current strategy to the given one
- *  and outputs the name of the strategy on the LCD.
- */
-uint8_t setActiveStrategy(SchedulingStrategy strategy) {
-    uint8_t strategyIndex = 0;
-    switch (strategy) {
-        case OS_SS_EVEN:
-            strategyIndex = 0;
-            lcd_writeProgString(PSTR("Even"));
-            os_setSchedulingStrategy(OS_SS_EVEN);
-            break;
 
-        case OS_SS_RANDOM:
-            strategyIndex = 4;
-            lcd_writeProgString(PSTR("Random"));
-            os_setSchedulingStrategy(OS_SS_RANDOM);
-            break;
-
-        case OS_SS_ROUND_ROBIN:
-            strategyIndex = 1;
-            lcd_writeProgString(PSTR("RoundRobin"));
-            os_setSchedulingStrategy(OS_SS_ROUND_ROBIN);
-            break;
-
-        case OS_SS_INACTIVE_AGING:
-            strategyIndex = 2;
-            lcd_writeProgString(PSTR("InactiveAging"));
-            os_setSchedulingStrategy(OS_SS_INACTIVE_AGING);
-            break;
-
-        case OS_SS_RUN_TO_COMPLETION:
-            strategyIndex = 3;
-            lcd_writeProgString(PSTR("RunToCompletion"));
-            os_setSchedulingStrategy(OS_SS_RUN_TO_COMPLETION);
-            break;
-
-        default:
-            break;
-    }
-    _delay_ms(LCD_DELAY);
-
-    return strategyIndex;
-}
-
-/*!
- *  Function that performs the given strategy for 32 steps
- *  and checks if the processes were scheduled correctly
- */
-void performStrategyTest(SchedulingStrategy strategy) {
-    lcd_clear();
-
-    // Change scheduling strategy
-    uint8_t strategyIndex = setActiveStrategy(strategy);
-
-    // Test if first step is 0
-    if (!strategyImplemented()) {
-        lcd_clear();
-        lcd_writeProgString(PSTR("Not impl. or idle returned"));
-        _delay_ms(LCD_DELAY);
-        return;
-    }
-
-    // Perform scheduling test.
-    // Save the id of the running process and call the scheduler.
-    i = 0;
-    while (i < 32) {
-        capture[i++] = 1;
-        TIMER2_COMPA_vect();
-    }
-
-    // Print captured schedule
-    lcd_clear();
-    for (i = 0; i < 32; i++) {
-        lcd_writeDec(capture[i]);
-    }
-
-    // Check captured schedule
-    if (strategyIndex < 4) {
-        for (i = 0; i < 32; i++) {
-            if (capture[i] != pgm_read_byte(&scheduling[strategyIndex][i])) {
-                // Move cursor
-                lcd_goto((i >= 16) + 1, (i % 16) + 1);
-                // Show cursor without underlining the position
-                lcd_command((LCD_SHOW_CURSOR & ~(1 << 1)) | LCD_DISPLAY_ON);
-                while (1) {}
-            }
-            if (i == 31) {
-                _delay_ms(LCD_DELAY);
-                lcd_clear();
-                lcd_writeProgString(PSTR("OK"));
-            }
-        }
-    } else {
-		// Output message after Random-Strategy in order not to confuse students
-		_delay_ms(LCD_DELAY);
-		lcd_clear();
-		lcd_writeProgString(PSTR("Can not be checked automatically"));
-	}
-
-    _delay_ms(LCD_DELAY);
-}
-
-/*!
- *  Function that performs the given strategy and checks
- *  if all processes could be scheduled
- */
-void performSchedulabilityTest(SchedulingStrategy strategy, uint8_t expectation) {
-    if (strategy == OS_SS_RUN_TO_COMPLETION) {
-        // Ignore RunToCompletion as the programs never terminate
-        return;
-    }
-
-    lcd_clear();
-
-    // Change scheduling strategy
-    setActiveStrategy(strategy);
-
-    // Test if first step is 0
-    if (!strategyImplemented()) {
-        lcd_clear();
-        lcd_writeProgString(PSTR("Not impl. or idle returned"));
-        _delay_ms(LCD_DELAY);
-        return;
-    }
-
-    uint8_t captured = 0;
-
-    // Doing this multiple times will make sure we have a high probability of
-    // scheduling every process (relevant for random strategy)
-    for (uint8_t j = 0; j < NUM_EXECUTIONS_SCHEDULABILITY; j++) {
-        // Perform strategy 32 times
-        i = 0;
-        while (i < 32) {
-            capture[i++] = 1;
-            TIMER2_COMPA_vect();
-        }
-
-        // Calculate which processes were scheduled
-        for (uint8_t k = 0; k < 32; k++) {
-            captured |= (1 << capture[k]);
-        }
-
-        // Check if all processes other than the idle process
-        // were scheduled
-        if (captured == expectation) {
-            lcd_clear();
-            lcd_writeProgString(PSTR("OK"));
-            _delay_ms(LCD_DELAY);
-
-            // Everything fine, so we can stop the test here
-            return;
-        }
-    }
-
-    // Find processes that were not scheduled (but should be)
-    uint8_t notScheduled = (expectation & captured) ^ expectation;
-    
-    // Find processes that were scheduled (but should not be)
-    uint8_t wrongScheduled = (captured & ~expectation);
-	
-	// Output the error to the user
-	lcd_clear();
-	switch (strategy) {
-		case OS_SS_EVEN:
-		lcd_writeProgString(PSTR("Even: "));
-		break;
-
-		case OS_SS_RANDOM:
-		lcd_writeProgString(PSTR("Random: "));
-		break;
-
-		case OS_SS_ROUND_ROBIN:
-		lcd_writeProgString(PSTR("RoundRobin: "));
-		break;
-
-		case OS_SS_INACTIVE_AGING:
-		lcd_writeProgString(PSTR("InactiveAg.: "));
-		break;
-
-		case OS_SS_RUN_TO_COMPLETION:
-		lcd_writeProgString(PSTR("RunToCompl.: "));
-		break;
-	}
-	lcd_goto(1, 14);
-
-    // Find the first incorrect process id
-    for (uint8_t k = 1; k < MAX_NUMBER_OF_PROCESSES; k++) {
-        if (notScheduled & (1 << k)) {
-            lcd_writeDec(k);
-            lcd_line2();
-            lcd_writeProgString(PSTR("not schedulable"));
-            break;
-        }
-		if (wrongScheduled & (1 << k)) {
-			lcd_writeDec(k);
-			lcd_line2();
-			lcd_writeProgString(PSTR("falsely sched."));
-			break;
-		}
-    }
-
-    // Wait forever
-    while (1) {}
-}
-
-/*!
- *  Function that tests the given strategy on an artificial empty process array
- *  This ensures the strategy does schedule the idle process if necessary.
- */
-void performScheduleIdleTest(SchedulingStrategy strategy) {
-
-    lcd_clear();
-
-    // Change scheduling strategy
-    setActiveStrategy(strategy);
-
-    // Test if first step is 0
-    if (!strategyImplemented()) {
-        lcd_clear();
-        lcd_writeProgString(PSTR("Not impl. or idle returned"));
-        _delay_ms(LCD_DELAY);
-        return;
-    }
-
-    // Setup artificial processes array
-    Process processes[MAX_NUMBER_OF_PROCESSES];
-
-    // Ensure clean states
-    for(uint8_t i = 0; i < MAX_NUMBER_OF_PROCESSES; i++)
-        processes[i].state = OS_PS_UNUSED;
-
-    uint8_t result;
-    for(uint8_t i = 0; i < MAX_NUMBER_OF_PROCESSES; i++){
-
-        switch(strategy) {
-            case OS_SS_EVEN:
-                result = os_Scheduler_Even(processes, i);
-                break;
-            case OS_SS_RANDOM:
-                result = os_Scheduler_Random(processes, i);
-                break;
-            case OS_SS_ROUND_ROBIN:
-                result = os_Scheduler_RoundRobin(processes, i);
-                break;
-            case OS_SS_INACTIVE_AGING:
-                result = os_Scheduler_InactiveAging(processes, i);
-                break;
-            case OS_SS_RUN_TO_COMPLETION:
-                result = os_Scheduler_RunToCompletion(processes, i);
-                break;
-        }
-
-        if(result != 0)
-            break;
-
-    }
-
-    if(result == 0){
-		lcd_goto(2,0);
-		lcd_writeProgString(PSTR("OK"));
-		_delay_ms(LCD_DELAY*0.5);
-		
-        return;
-	}
-	
-    // Output the error to the user
-    lcd_clear();
-	switch (strategy) {
-        case OS_SS_EVEN:
-            lcd_writeProgString(PSTR("Even: "));
-            break;
-
-        case OS_SS_RANDOM:
-            lcd_writeProgString(PSTR("Random: "));
-            break;
-
-        case OS_SS_ROUND_ROBIN:
-            lcd_writeProgString(PSTR("RoundRobin: "));
-            break;
-
-        case OS_SS_INACTIVE_AGING:
-            lcd_writeProgString(PSTR("Inac.Ag.: "));
-            break;
-
-        case OS_SS_RUN_TO_COMPLETION:
-            lcd_writeProgString(PSTR("RunToCompl.: "));
-            break;
-    }
-    lcd_writeProgString(PSTR("Idle not scheduled"));
-    
-    // Wait forever
-    while (1) {}
-}
-
-
-/*!
- * Program that deactivates the scheduler, spawns two programs
- * and performs the test
- */
 PROGRAM(1, AUTOSTART) {
-    // Disable scheduler-timer
-    cbi(TCCR2B, CS22);
-    cbi(TCCR2B, CS21);
-    cbi(TCCR2B, CS20);
 
-    os_getProcessSlot(os_getCurrentProc())->priority = 2;
+#if PHASE_BUTTONS == 1
+    // 1. Checking registers for buttons
+    be_showPhase(1, PSTR("Registers"));
+    delayMs(DELAY);
 
-    os_exec(2, 5);
-    os_exec(3, 17);
-
-    SchedulingStrategy strategies[] = {
-        OS_SS_EVEN,
-        OS_SS_RANDOM,
-        OS_SS_ROUND_ROBIN,
-        OS_SS_INACTIVE_AGING,
-        OS_SS_RUN_TO_COMPLETION
-    };
-
-    uint8_t k = 0;
-    uint8_t numStrategies = sizeof(strategies) / sizeof(SchedulingStrategy);
-
-#if PHASE_1 == 1
-
-    lcd_clear();
-    lcd_writeProgString(PSTR("Phase 1:\nStrategies"));
-    _delay_ms(LCD_DELAY);
-
-    // Start strategies test
-    for (k = 0; k < numStrategies; k++) {
-        performStrategyTest(strategies[k]);
+    if ((DDRC & 0xC3) != 0) {
+        be_throwError(PSTR("DDR wrong"));
     }
 
-#endif
-#if PHASE_2 == 1
-
-    lcd_clear();
-    lcd_writeProgString(PSTR("Phase 2:\nIdle"));
-    _delay_ms(LCD_DELAY);
-
-    // Start strategies test
-    for (k = 0; k < numStrategies; k++) {
-        performScheduleIdleTest(strategies[k]);
+    if ((PORTC & 0xC3) != 0xC3) {
+        be_throwError(PSTR("No pull ups"));
     }
 
-#endif
-    
-	// Execute programs so all process slots are in use
-    os_exec(4, DEFAULT_PRIORITY);
-    os_exec(5, DEFAULT_PRIORITY);
-    os_exec(6, DEFAULT_PRIORITY);
-    os_exec(7, DEFAULT_PRIORITY);
-	
-#if PHASE_3 == 1
+    be_phaseSuccess();
+    delayMs(DELAY);
 
-    lcd_clear();
-    lcd_writeProgString(PSTR("Phase 3: Schedulability All"));
-    _delay_ms(LCD_DELAY);
+    // 2. Checking input-functions
+    be_showPhase(2, PSTR("Button test"));
+    delayMs(DELAY);
 
-    // Start schedulability test
-    for (k = 0; k < numStrategies; k++) {
-        performSchedulabilityTest(strategies[k], 0b11111110);
+    uint8_t i;
+    for (i = 1; i <= 4; i++) {
+        be_testBtn(i);
     }
 
+    be_showPhase(2, PSTR("Button test"));
+    be_phaseSuccess();
+    delayMs(DELAY);
 #endif
-#if PHASE_4 == 1
 
+#if PHASE_ERROR == 1
+    // 3. Checking if the global interrupt flag is disabled during os_error
+    // Disable scheduler timer
+    TCCR2B   = 0;
+    // Configure our check timer for CTC, 1024 prescaler
+    TCCR1A   = 0;
+    TCCR1C   = 0;
+    OCR1A    = 500;
+    TIMSK1  |= (1 << OCIE1A);
+
+    be_showPhase(3, PSTR("Interrupts"));
+    delayMs(DELAY);
+
+    TCCR1B = (1 << WGM12) | (1 << CS10);
+
+    // Throw an error
+    os_error("Interrupts Confirm error!");
+
+    // At this point the error was confirmed and a correct os_error will reactivate
+    // global interrupts, which leads to exactly one timer interrupt
+
+    // Disable our check timer
+    TCCR1B = 0;
     lcd_clear();
-    lcd_writeProgString(PSTR("Phase 4: Schedulability Partial"));
-    _delay_ms(LCD_DELAY);
 
-    // Reset some processes
-    os_getProcessSlot(3)->state = OS_PS_UNUSED;
-    os_getProcessSlot(4)->state = OS_PS_UNUSED;
-    os_getProcessSlot(7)->state = OS_PS_UNUSED;
-
-    // Start schedulability test
-    for (k = 0; k < numStrategies; k++) {
-        performSchedulabilityTest(strategies[k], 0b01100110);
+    // The test passes only when less or equal 5 interrupts were counted
+    if (count <= 5) {
+        be_showPhase(3, PSTR("Interrupts"));
+        be_phaseSuccess();
+        delayMs(DELAY);
+    } else {
+        be_throwError(PSTR("Interrupted"));
     }
 
+    // Phase 4: Does os_error restore GIEB if it was activated?
+    be_showPhase(4, PSTR("GIEB on"));
+    delayMs(DELAY);
+
+    // Enable global interrupts
+    sei();
+
+    // Throw an error
+    os_error("GIEB on Confirm error!");
+
+    // Error was confirmed, check if global interrupts are still on
+    if (SREG & (1 << 7)) {
+        be_showPhase(4, PSTR("GIEB on"));
+        be_phaseSuccess();
+        delayMs(DELAY);
+    } else {
+        cli();
+        be_throwError(PSTR("GIEB falsely off"));
+    }
+
+
+    // Phase 5: Does os_error restore GIEB if it was deactivated?
+    be_showPhase(5, PSTR("GIEB off"));
+    delayMs(DELAY);
+
+    // Disable global interrupts
+    cli();
+
+    // Throw an error
+    os_error("GIEB off Confirm error!");
+
+    // Error was confirmed, check if global interrupts are still off
+    if (SREG & (1 << 7)) {
+        be_throwError(PSTR("GIEB falsely on"));
+    } else {
+        be_showPhase(5, PSTR("GIEB off"));
+        be_phaseSuccess();
+        delayMs(DELAY);
+    }
 #endif
 
-    // All tests passed
+    lcd_clear();
     while (1) {
+        lcd_writeProgString(PSTR("ALL TESTS PASSED"));
+        delayMs(DELAY);
         lcd_clear();
-        lcd_writeProgString(PSTR("  TEST PASSED   "));
-        _delay_ms(0.5 * LCD_DELAY);
-        lcd_clear();
-        _delay_ms(0.5 * LCD_DELAY);
+        delayMs(DELAY);
     }
 }
 
 /*!
- *  Writes a given program ID to the capture array
- *  and calls the ISR manually afterwards
- *
- *  \param programID The ID which will be written to the capture array
+ * Prints an error message on the LCD. Then halts.
+ * \param  *str Message to print
  */
-void testProgram(uint8_t programID) {
-    while (1) {
-        if (i < 32) {
-            capture[i++] = programID;
-        }
-        TIMER2_COMPA_vect();
+void be_throwError(char const* str) {
+    lcd_clear();
+    lcd_line1();
+    lcd_writeProgString(PSTR("Error:"));
+    lcd_line2();
+    lcd_writeProgString(str);
+    HALT;
+}
+
+/*!
+ * Tests one button. Tests for the correct function of os_getInputs,
+ * os_waitForInput and os_waitForNoInput. If an error occurs, an error message
+ * is shown.
+ * \param btnNr Number of button to test (between 1 and 4)
+ */
+void be_testBtn(uint8_t btnNr) {
+    lcd_clear();
+    lcd_writeProgString(PSTR("Press button "));
+    lcd_writeDec(btnNr);
+
+    os_waitForInput();
+    delayMs(50);
+
+    if (os_getInput() == 0) {
+        be_throwError(PSTR("waitForInput"));
+    }
+    if ((os_getInput() != 1 << (btnNr - 1)) || ((PINC & 0b11000011) != (btnNr < 3 ? (0b11000011 ^ 1 << (btnNr - 1)) : (0b11000011 ^ 1 << (btnNr + 3))))) {
+        be_throwError(PSTR("getInput"));
+    }
+
+    lcd_clear();
+    lcd_writeProgString(PSTR("Release button "));
+    lcd_writeDec(btnNr);
+
+    os_waitForNoInput();
+    delayMs(50);
+
+    if ((os_getInput() != 0) || ((PINC & 0xC3) != 0xC3)) {
+        be_throwError(PSTR("waitForNoInput"));
     }
 }
 
-PROGRAM(2, DONTSTART) {
-    testProgram(2);
+/*!
+ * Prints phase information to the LCD.
+ * \param  i    Index of phase
+ * \param *name Name of phase
+ */
+void be_showPhase(uint8_t i, char const* name) {
+    lcd_clear();
+    lcd_writeProgString(PSTR("Phase "));
+    lcd_writeDec(i);
+    lcd_writeChar(':');
+    lcd_line2();
+    lcd_writeProgString(name);
 }
 
-PROGRAM(3, DONTSTART) {
-    testProgram(3);
-}
-
-PROGRAM(4, DONTSTART) {
-    testProgram(4);
-}
-
-PROGRAM(5, DONTSTART) {
-    testProgram(5);
-}
-
-PROGRAM(6, DONTSTART) {
-    testProgram(6);
-}
-
-PROGRAM(7, DONTSTART) {
-    testProgram(7);
+/*!
+ * Prints OK for the phase message.
+ */
+void be_phaseSuccess(void) {
+    lcd_goto(2, 15);
+    lcd_writeProgString(PSTR("OK"));
 }
