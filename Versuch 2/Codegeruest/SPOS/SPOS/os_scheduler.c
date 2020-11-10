@@ -218,7 +218,7 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	os_resetProcessSchedulingInformation(index);
 	
 	StackPointer proccess_stack_bottom;
-	proccess_stack_bottom.as_int = PROCESS_STACK_BOTTOM(programID);
+	proccess_stack_bottom.as_int = PROCESS_STACK_BOTTOM(index);
 	*(proccess_stack_bottom.as_ptr) = (uint8_t)(((uint16_t) prog << 8 ) >> 8);
 	proccess_stack_bottom.as_int--;
 	*(proccess_stack_bottom.as_ptr) = (uint8_t)((uint16_t) prog >> 8);
