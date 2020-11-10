@@ -83,9 +83,9 @@ ProcessID os_Scheduler_Random(Process const processes[], ProcessID current) {
  *  \return The next process to be executed determined on the basis of the round robin strategy.
  */
 ProcessID os_Scheduler_RoundRobin(Process const processes[], ProcessID current) {
-    if(schedulingInfo.timeSlice == 0) {
+    if(processes[current].state != OS_PS_READY || schedulingInfo.timeSlice == 1) {
 		ProcessID id = os_Scheduler_Even(processes, current);
-		schedulingInfo.timeSlice = os_getProcessSlot(id)->priority;
+		schedulingInfo.timeSlice = processes[id].priority;
 		return id;
 	}
 	schedulingInfo.timeSlice -= 1;
@@ -104,51 +104,29 @@ ProcessID os_Scheduler_RoundRobin(Process const processes[], ProcessID current) 
  *  \return The next process to be executed, determined based on the inactive-aging strategy.
  */
 ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID current) {
-	// Increasing age + Sorting by Insertion Sort
-	/*
-	 * This code is shit.
-	 * - Author
-	 */
-	/*
-	uint8_t k, j;
-	uint8_t ages[MAX_NUMBER_OF_PROCESSES - 1];
-	uint8_t indices[MAX_NUMBER_OF_PROCESSES - 1];
-    for(uint8_t i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
-		if(processes[i].state != OS_PS_UNUSED && i != current) {
+	// Update aged
+	uint8_t i;
+	for (i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
+		if (processes[i].state == OS_PS_READY && i != current) {
 			schedulingInfo.age[i] += processes[i].priority;
-			k = schedulingInfo.age[i];
-		}else if(i == current) {
-			k = schedulingInfo.age[i];
-		}else {
-			k = 0;
 		}
-		j = i - 2;
-		while(j >= 0 && ages[j] > k) {
-			ages[j + 1] == ages[j];
-			indices[j + 1] == indices[j];
-			j--;
-		}
-		ages[j + 1] = k;
-		indices[j + 1] = i;
 	}
-	if(ages[0] > ages[1]) {
-		schedulingInfo.age[indices[0]] = processes[indices[0]].priority;
-		return indices[0];
-	}else {
-		uint8_t max_prio = processes[indices[0]].priority;
-		uint8_t max_age = ages[0];
-		uint8_t max_index_index;
-		for(uint8_t i = MAX_NUMBER_OF_PROCESSES - 2; i > 0; i++) {
-			if(ages[i] == max_age && processes[indices[i]].priority > max_age) {
-				max_age = processes[indices[i]].priority;
-				max_index_index = i + 1;
-			}
+	
+	// Select highest
+	uint8_t max_age = 0;
+	for (i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
+		if (processes[i].state == OS_PS_READY && schedulingInfo.age[i] > schedulingInfo.age[max_age]) {
+			max_age = i;
 		}
-		if(max_index_index == 0) return 0; // Leerlauf
-		return indices[max_index_index - 1];
+		if (processes[i].state == OS_PS_READY && schedulingInfo.age[i] == schedulingInfo.age[max_age] && processes[i].priority > processes[max_age].priority) {
+			// if processes[i].priority == processes[max_age].priority then do nothing because we traverse array in correct order
+			max_age = i;
+		}
 	}
-	*/
-	return 0;
+	
+	schedulingInfo.age[max_age] = processes[max_age].priority;
+		
+	return max_age;
 }
 
 /*!
