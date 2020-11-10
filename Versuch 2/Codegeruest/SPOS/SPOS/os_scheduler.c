@@ -71,7 +71,9 @@ ISR(TIMER2_COMPA_vect) {
 
 	os_processes[currentProc].checksum = os_getStackChecksum(currentProc);
 	
-	os_processes[currentProc].state = OS_PS_READY;
+	if (os_processes[currentProc].state == OS_PS_RUNNING) { // Making sure currentProc wasn't terminated
+		os_processes[currentProc].state = OS_PS_READY;
+	}
 	
 	switch(currentSchedStrat) {
 		case OS_SS_EVEN: currentProc = os_Scheduler_Even(os_processes, currentProc); break;
