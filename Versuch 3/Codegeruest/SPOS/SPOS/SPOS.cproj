@@ -175,6 +175,12 @@
     <Compile Include="os_input.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="os_mem_drivers.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="os_mem_drivers.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="os_process.c">
       <SubType>compile</SubType>
     </Compile>

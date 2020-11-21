@@ -3,10 +3,15 @@
 #include "util.h"
 #include "lcd.h"
 #include "os_input.h"
+#include "os_mem_drivers.h"
+#include "os_memheap_drivers.h"
 
 #include <avr/interrupt.h>
 
 void os_initScheduler(void);
+
+extern uint8_t const __heap_start;
+
 
 //variable specially forcing the c/c++ linker to not initialize the variable so we can detect its initialized state
 uint8_t softResetDetector __attribute__ ((section (".noinit")));
@@ -127,6 +132,12 @@ void os_init(void) {
     delayMs(2000);
 
     os_initScheduler();
+
+	if(&(__heap_start) > (AVR_SRAM_START + HEAPOFFSET)) {
+		os_errorPStr("Heap Offset too small!");
+	}
+	*(intSRAM)->init();
+	os_initHeaps();
 
     os_coarseSystemTime = 0;
 }
