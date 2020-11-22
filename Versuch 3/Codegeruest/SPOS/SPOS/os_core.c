@@ -3,10 +3,13 @@
 #include "util.h"
 #include "lcd.h"
 #include "os_input.h"
+#include "os_mem_drivers.h"
 
 #include <avr/interrupt.h>
 
 void os_initScheduler(void);
+
+extern uint8_t const __heap_start;
 
 //variable specially forcing the c/c++ linker to not initialize the variable so we can detect its initialized state
 uint8_t softResetDetector __attribute__ ((section (".noinit")));
@@ -120,11 +123,18 @@ void os_init(void) {
 
     // Init LCD display
     lcd_init();
-
+	
     lcd_writeProgString(PSTR("Booting SPOS ..."));
     os_checkResetRegister(0);
     os_checkSoftReset(1);
     delayMs(2000);
+	
+	// Maybe move this into a heap init function (Heap or SRAM drivers)
+	if (__heap_start > (AVR_SRAM_START + HEAP_OFFSET)) {
+		os_errorPStr("Increase Heap Offset!");
+	}
+	
+	intSRAM.init();
 
     os_initScheduler();
 

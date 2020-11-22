@@ -32,11 +32,13 @@
 //----------------------------------------------------------------------------
 
 //! The current id of the exercise (this must be changed every two weeks).
-#define VERSUCH 2
+#define VERSUCH 3
 
 //----------------------------------------------------------------------------
 // System constants
 //----------------------------------------------------------------------------
+
+#define HEAP_OFFSET 200
 
 /*!
  *  Maximum number of processes that can be running at the same time
