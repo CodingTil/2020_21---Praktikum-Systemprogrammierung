@@ -5,8 +5,6 @@
 
 #define intHeap &(intHeap__);
 
-extern const PROGMEM char name[];
-
 typedef enum {
 	OS_MEM_FIRST,
 	OS_MEM_NEXT,
@@ -16,10 +14,12 @@ typedef enum {
 
 typedef struct {
 	MemDriver *driver;
+	MemAddr map_start;
+	unsigned long map_size;
 	MemAddr use_start;
 	unsigned long use_size;
 	AllocStrategy alloc_strategy;
-	
+	extern const PROGMEM char name[];
 }Heap;
 
 void os_initHeaps(void);
