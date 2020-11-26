@@ -130,7 +130,7 @@ void os_init(void) {
     delayMs(2000);
 	
 	// Maybe move this into a heap init function (Heap or SRAM drivers)
-	if (__heap_start > (AVR_SRAM_START + HEAP_OFFSET)) {
+	if (&(__heap_start) > (AVR_SRAM_START + HEAP_OFFSET)) {
 		os_errorPStr("Increase Heap Offset!");
 	}
 	
