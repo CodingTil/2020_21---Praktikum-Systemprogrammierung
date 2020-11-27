@@ -136,8 +136,9 @@ void os_init(void) {
 	if(&(__heap_start) > (AVR_SRAM_START + HEAPOFFSET)) {
 		os_errorPStr("Heap Offset too small!");
 	}
-	*(intSRAM)->init();
-	os_initHeaps();
+	intSRAM.init();
+	
+	os_initHeaps()
 
     os_coarseSystemTime = 0;
 }

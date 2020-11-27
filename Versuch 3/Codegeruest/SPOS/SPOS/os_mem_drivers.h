@@ -8,7 +8,7 @@ typedef uint8_t MemValue;
 
 typedef struct {
 	MemAddr start;
-	unsigned long size; #warning: Unsure
+	size_t size;
 	void (*init)(void);
 	MemValue (*read)(MemAddr);
 	void (*write)(MemAddr, MemValue);
