@@ -32,7 +32,7 @@
 //----------------------------------------------------------------------------
 
 //! The current id of the exercise (this must be changed every two weeks).
-#define VERSUCH 2
+#define VERSUCH 3
 
 //----------------------------------------------------------------------------
 // System constants
