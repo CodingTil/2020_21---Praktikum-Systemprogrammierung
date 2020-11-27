@@ -11,10 +11,10 @@ MemDriver intSRAM__ = {
 void *initSRAM_internal(void) {};
 	
 MemValue *readSRAM_internal(MemAddr addr) {
-	return *((uint8_t*) addr);
+	return *((MemValue*) addr);
 }
 
 void *writeSRAM_internal(MemAddr addr, MemValue){
-	*((uint8_t*) addr) = value;
+	*((MemValue*) addr) = value;
 }
 
