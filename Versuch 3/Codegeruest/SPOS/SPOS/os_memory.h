@@ -3,6 +3,7 @@
 
 #include "os_mem_drivers.h"
 #include "os_memheap_drivers.h"
+#include "os_process.h"
 
 MemAddr os_malloc(Heap* heap, size_t size);
 void os_free(Heap* heap, MemAddr addr);
