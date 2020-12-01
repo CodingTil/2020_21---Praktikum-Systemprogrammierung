@@ -21,7 +21,7 @@ void write(MemAddr addr, MemValue value){
 	&addr = value;
 }
 
-struct MemDriver intSRAM__;
+//struct MemDriver intSRAM__;
 
 MemDriver intSRAM__ = {
 	.start = AVR_SRAM_START,
