@@ -7,7 +7,7 @@
 #include "os_memheap_drivers.h"
 
 void os_initHeaps() {
-	for(MemAddr i = intHeap__.start_map; i < intHeap__.start_use; i++) {
+	for(MemAddr i = intHeap__.map_start; i < intHeap__.use_start; i++) {
 		intSRAM.write(i, 0);
 	}
 }
@@ -22,10 +22,10 @@ Heap* os_lookupHeap(uint8_t index) {
 
 Heap intHeap__ = {
 	.driver = ,
-	.start_map = ,
-	.size_map = ,
-	.start_use = ,
-	.size_use = ,
+	.map_start = ,
+	.map_size = ,
+	.use_start = ,
+	.use_size = ,
 	.heap_strategy = ,
 	.name = 
 };

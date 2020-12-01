@@ -78,6 +78,12 @@ SchedulingStrategy os_getSchedulingStrategy(void);
 //! Calculates the checksum of the stack for the corresponding process of pid.
 StackChecksum os_getStackChecksum(ProcessID pid);
 
+//! Manages encapsulation of application functions
+void os_dispatcher(void);
+
+//! Enables preemptive termination of processes
+bool os_kill(ProcessID pid);
+
 //----------------------------------------------------------------------------
 // Critical section management
 //----------------------------------------------------------------------------

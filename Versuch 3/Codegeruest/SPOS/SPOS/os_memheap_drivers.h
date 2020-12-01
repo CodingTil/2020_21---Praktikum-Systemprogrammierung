@@ -21,10 +21,10 @@ typedef enum {
 typedef struct {
 	MemDriver *driver;
 	
-	MemAddr start_map;
-	size_t size_map;
-	MemAddr start_use;
-	size_t size_use;
+	MemAddr map_start;
+	size_t map_size;
+	MemAddr use_start;
+	size_t use_size;
 	
 	AllocStrategy heap_strategy;
 	

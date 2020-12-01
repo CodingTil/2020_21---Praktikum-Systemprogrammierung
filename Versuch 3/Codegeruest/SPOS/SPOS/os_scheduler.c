@@ -400,3 +400,19 @@ StackChecksum os_getStackChecksum(ProcessID pid) {
     }
     return sum;
 }
+
+
+
+/*
+ *
+ */
+void os_dispatcher() {
+	
+}
+
+/*
+ *
+ */
+bool os_kill(ProcessID pid) {
+	
+}
