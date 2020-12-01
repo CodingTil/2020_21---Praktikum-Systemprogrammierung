@@ -6,6 +6,9 @@
 #include "os_core.h"
 #include "lcd.h"
 
+#include "os_memheap_drivers.h"
+#include "os_memory.h"
+
 #include <avr/interrupt.h>
 
 //----------------------------------------------------------------------------
@@ -93,6 +96,31 @@ ISR(TIMER2_COMPA_vect) {
 	
 	restoreContext();
 }
+
+
+void os_dispatcher(void) {
+	ProcessID i = currentProc;
+	Program* j = os_lookupProgramFunction(os_processes[i].progID);
+	j();
+	os_kill(i);
+}
+
+bool os_kill(ProcessID pid) {
+	if(pid == 0) return false;
+	os_enterCriticalSection();
+	os_processes[pid].state = OS_PS_UNUSED;
+	os_freeProcessMemory(intHeap, pid);
+	#warning Fehlt: Kritische Bereiche von pid
+	if(pid == currentProc) {
+		os_leaveCriticalSection();
+		while(pid == currentProc);
+		return true;
+	}else {
+		os_leaveCriticalSection();
+		return true;
+	}
+}
+
 
 /*!
  *  Used to register a function as program. On success the program is written to
@@ -216,6 +244,11 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	os_processes[index].priority = priority;
 
 	os_resetProcessSchedulingInformation(index);
+	
+	ProcessID tmp = currentProc;
+	currentProc = index;
+	prog = &os_dispatcher;
+	currentProc = tmp;
 	
 	StackPointer proccess_stack_bottom;
 	proccess_stack_bottom.as_int = PROCESS_STACK_BOTTOM(index);

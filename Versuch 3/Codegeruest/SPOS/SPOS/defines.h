@@ -40,7 +40,7 @@
 
 
 
-#define HEAPOFFSET 200;
+#define HEAPOFFSET 200
 
 /*!
  *  Maximum number of processes that can be running at the same time

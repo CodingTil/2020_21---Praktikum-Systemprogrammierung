@@ -1,7 +1,10 @@
 #ifndef OS_MEMHEAP_DRIVERS_H_
 #define OS_MEMHEAP_DRIVERS_H_
 
-#define intHeap &(intHeap__);
+#include "os_mem_drivers.h"
+#include "defines.h"
+
+extern const PROGMEM char name[];
 
 typedef enum {
 	OS_MEM_FIRST,
@@ -17,8 +20,11 @@ typedef struct {
 	MemAddr use_start;
 	size_t use_size;
 	AllocStrategy alloc_strategy;
-	extern const PROGMEM char name[];
+	const PROGMEM char name[];
 }Heap;
+
+Heap intHeap__;
+#define intHeap &(intHeap__)
 
 void os_initHeaps(void);
 uint16_t os_getHeapListLength(void);
