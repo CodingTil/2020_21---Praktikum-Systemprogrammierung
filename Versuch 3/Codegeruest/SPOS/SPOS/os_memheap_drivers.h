@@ -20,11 +20,11 @@ typedef struct {
 	MemAddr use_start;
 	size_t use_size;
 	AllocStrategy alloc_strategy;
-	const PROGMEM char name[];
+	const char* name;
 }Heap;
 
 Heap intHeap__;
-#define intHeap &(intHeap__)
+#define intHeap (&intHeap__)
 
 void os_initHeaps(void);
 uint16_t os_getHeapListLength(void);
