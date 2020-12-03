@@ -1,21 +1,21 @@
 #ifndef OS_MEM_DRIVERS_H_
 #define OS_MEM_DRIVERS_H_
 
-#include <stdint.h>
-#include "util.h"
+#include <inttypes.h>
 
 typedef uint16_t MemAddr;
+
 typedef uint8_t MemValue;
 
-typedef struct {
+typedef struct MemDriver {
 	MemAddr start;
-	size_t size;
+	uint16_t size;
 	void (*init)(void);
-	MemValue (*read)(MemAddr);
-	void (*write)(MemAddr, MemValue);
-}MemDriver;
+	MemValue (*read)(MemAddr addr);
+	void (*write)(MemAddr addr, MemValue value);
+} MemDriver;
 
-MemDriver intSRAM__;
+const MemDriver intSRAM__;
 #define intSRAM (&intSRAM__)
 
 #endif /* OS_MEM_DRIVERS_H_ */

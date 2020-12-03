@@ -5,6 +5,8 @@
 #include "os_taskman.h"
 #include "os_core.h"
 #include "lcd.h"
+#include "os_memory.h"
+#include "os_memheap_drivers.h"
 
 #include "os_memheap_drivers.h"
 #include "os_memory.h"
@@ -97,30 +99,23 @@ ISR(TIMER2_COMPA_vect) {
 	restoreContext();
 }
 
-
 void os_dispatcher(void) {
-	ProcessID i = currentProc;
-	Program* j = os_lookupProgramFunction(os_processes[i].progID);
+	ProcessID pid = currentProc;
+	Program* j = os_lookupProgramFunction(os_processes[pid].progID);
 	j();
-	os_kill(i);
+	criticalSectionCount = 0; // This ensures that this program has no critical sections left.
+	os_kill(pid);
 }
 
 bool os_kill(ProcessID pid) {
-	if(pid == 0) return false;
+	if (pid == 0) return false;
 	os_enterCriticalSection();
 	os_processes[pid].state = OS_PS_UNUSED;
-	os_freeProcessMemory(intHeap, pid);
-	#warning Fehlt: Kritische Bereiche von pid
-	if(pid == currentProc) {
-		os_leaveCriticalSection();
-		while(pid == currentProc);
-		return true;
-	}else {
-		os_leaveCriticalSection();
-		return true;
-	}
+	//os_freeProcessMemory(intHeap, pid);
+	os_leaveCriticalSection();
+	while (pid == currentProc);
+	return true;
 }
-
 
 /*!
  *  Used to register a function as program. On success the program is written to
@@ -238,6 +233,7 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 		os_leaveCriticalSection();	
 		return INVALID_PROCESS;
 	}
+	prog = &os_dispatcher;
 	
 	os_processes[index].state = OS_PS_READY;
 	os_processes[index].progID = programID;
