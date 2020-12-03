@@ -4,6 +4,7 @@
 #include "lcd.h"
 #include "os_input.h"
 #include "os_mem_drivers.h"
+#include "os_memheap_drivers.h"
 
 #include <avr/interrupt.h>
 
@@ -136,7 +137,7 @@ void os_init(void) {
 	
 	intSRAM->init();
 
-os_initHeaps();
+	os_initHeaps();
 
     os_initScheduler();
 

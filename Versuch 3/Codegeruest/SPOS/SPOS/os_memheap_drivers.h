@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include "util.h"
 
-extern const PROGMEM char internal_name[];
+extern const PROGMEM char intStr[];
 
 typedef enum AllocStrategy {
 	OS_MEM_FIRST,

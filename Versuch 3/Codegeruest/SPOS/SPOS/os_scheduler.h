@@ -30,7 +30,7 @@ typedef enum SchedulingStrategy {
 } SchedulingStrategy;
 
 // Change this define to reflect the number of available strategies:
-#define SCHEDULING_STRATEGY_COUNT 2
+#define SCHEDULING_STRATEGY_COUNT 5
 
 //----------------------------------------------------------------------------
 // Function headers
