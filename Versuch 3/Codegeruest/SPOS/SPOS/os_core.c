@@ -136,6 +136,8 @@ void os_init(void) {
 	
 	intSRAM->init();
 
+os_initHeaps();
+
     os_initScheduler();
 
     os_coarseSystemTime = 0;

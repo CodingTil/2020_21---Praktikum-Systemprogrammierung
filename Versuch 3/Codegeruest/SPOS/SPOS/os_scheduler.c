@@ -100,6 +100,7 @@ void os_dispatcher(void) {
 	ProcessID pid = currentProc;
 	Program* j = os_lookupProgramFunction(os_processes[pid].progID);
 	j();
+	criticalSectionCount = 0; // This ensures that this program has no critical sections left.
 	os_kill(pid);
 	while (true);
 }
@@ -109,7 +110,6 @@ bool os_kill(ProcessID pid) {
 	os_enterCriticalSection();
 	os_processes[pid].state = OS_PS_UNUSED;
 	os_freeProcessMemory(intHeap, pid);
-	#warning Fehlt: Kritische Bereche von pid
 	os_leaveCriticalSection();
 	return true;
 }
