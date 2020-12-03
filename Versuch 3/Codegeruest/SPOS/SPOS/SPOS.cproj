@@ -181,6 +181,12 @@
     <Compile Include="os_memheap_drivers.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="os_memory.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="os_memory.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="os_memory_strategies.c">
       <SubType>compile</SubType>
     </Compile>

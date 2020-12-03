@@ -42,6 +42,10 @@ Process* os_getProcessSlot(ProcessID pid);
 //! Starts the scheduler
 void os_startScheduler(void);
 
+void os_dispatcher(void);
+
+bool os_kill(ProcessID pid);
+
 //! Registers a program (will not be started)
 ProgramID os_registerProgram(Program* program);
 

@@ -5,6 +5,8 @@
 #include "os_taskman.h"
 #include "os_core.h"
 #include "lcd.h"
+#include "os_memory.h"
+#include "os_memheap_drivers.h"
 
 #include <avr/interrupt.h>
 
@@ -92,6 +94,24 @@ ISR(TIMER2_COMPA_vect) {
 	SP = os_processes[currentProc].sp.as_int;
 	
 	restoreContext();
+}
+
+void os_dispatcher(void) {
+	ProcessID pid = currentProc;
+	Program* j = os_lookupProgramFunction(os_processes[pid].progID);
+	j();
+	os_kill(pid);
+	while (true);
+}
+
+bool os_kill(ProcessID pid) {
+	if (pid == 0) return false;
+	os_enterCriticalSection();
+	os_processes[pid].state = OS_PS_UNUSED;
+	os_freeProcessMemory(intHeap, pid);
+	#warning Fehlt: Kritische Bereche von pid
+	os_leaveCriticalSection();
+	return true;
 }
 
 /*!
@@ -205,7 +225,7 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 		return INVALID_PROCESS;
 	}
 	
-	Program* prog = os_lookupProgramFunction(programID);
+	Program* prog = os_dispatcher;
 	if(prog == NULL) {
 		os_leaveCriticalSection();	
 		return INVALID_PROCESS;
