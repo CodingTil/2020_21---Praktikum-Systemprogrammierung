@@ -1,12 +1,5 @@
 #include "os_mem_drivers.h"
-
-const MemDriver intSRAM__ = {
-	.init = initSRAM_internal,
-	.read = readSRAM_internal,
-	.write = writeSRAM_internal,
-	.start = AVR_SRAM_START,
-	.size = AVR_MEMORY_SRAM
-};
+#include "defines.h"
 
 // How to make this functions private?
 
@@ -15,19 +8,29 @@ void initSRAM_internal(void) {
 }
 
 MemValue readSRAM_internal(MemAddr addr) {
+	// CHECK IF PERMISSIONS???
 	/*
 	uint8_t *ptr;
 	&(ptr) = addr;
 	return *ptr;
 	*/
-	return *((uint8_t*) addr)
+	return *((MemValue*) addr);
 }
 
 void writeSRAM_internal(MemAddr addr, MemValue value) {
+	// CHECK IF PERMISSIONS???
 	/*
 	uint8_t *ptr;
 	&(ptr) = addr;
 	*ptr = value;
 	*/
-	*((uint8_t*) addr) = value;
+	*((MemValue*) addr) = value;
 }
+
+const MemDriver intSRAM__ = {
+	.init = &initSRAM_internal,
+	.read = &readSRAM_internal,
+	.write = &writeSRAM_internal,
+	.start = AVR_SRAM_START,
+	.size = AVR_MEMORY_SRAM
+};
