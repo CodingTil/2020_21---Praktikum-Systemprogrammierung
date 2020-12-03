@@ -3,12 +3,12 @@
 
 MemAddr os_Memory_FirstFit(Heap *heap, size_t size) {
 	MemAddr addr;
-	size_t current_size;
-	for (addr = heap->use_start; addr < heap->use_start + heap->use_size - size; addr++) {
+	size_t current_size = 0;
+	for (addr = heap->use_start; addr < heap->use_start + heap->use_size; addr++) {
 		if (os_getOwner(heap, addr) == 0) {
 			current_size++;
 			if (current_size >= size) {
-				return addr - size;
+				return addr - size + 1;
 			}
 		} else {
 			current_size = 0;
@@ -26,22 +26,22 @@ MemAddr os_Memory_NextFit(Heap *heap, size_t size) {
 		return last_addr;
 	}
 	MemAddr address;
-	size_t current_size;
-	for (address = last_addr; address < heap->use_size - size; address++) {
+	size_t current_size = 0;
+	for (address = last_addr; address < heap->use_size; address++) {
 		if (os_getOwner(heap, address) == 0) {
 			current_size ++;
 			if (current_size >= size) {
-				return address - size;
+				return address - size + 1;
 			}
 		} else {
 			current_size = 0;
 		}
 	}
-	for (address = heap->use_start; address < last_addr - size; address++) {
+	for (address = heap->use_start; address < last_addr; address++) {
 		if (os_getOwner(heap, address) == 0) {
-			current_size ++;
+			current_size++;
 			if (current_size >= size) {
-				return address - size;
+				return address - size + 1;
 			}
 		} else {
 			current_size = 0;
@@ -52,12 +52,12 @@ MemAddr os_Memory_NextFit(Heap *heap, size_t size) {
 
 MemAddr os_Memory_BestFit(Heap *heap, size_t size) {
 	MemAddr address;
-	size_t current_size;
-	MemAddr best_addr;
+	size_t current_size = 0;
+	MemAddr best_addr = 0;
 	size_t best_size = 0;
-	for (address = heap->use_start; address < heap->use_size - size; address++) {
+	for (address = heap->use_start; address < heap->use_size; address++) {
 		if (os_getOwner(heap, address) == 0) {
-			current_size ++;
+			current_size++;
 		} else {
 			if (current_size > size && current_size > best_size) {
 				best_addr = address - size - 1;
@@ -74,10 +74,10 @@ MemAddr os_Memory_BestFit(Heap *heap, size_t size) {
 
 MemAddr os_Memory_WorstFit(Heap *heap, size_t size) {
 	MemAddr address;
-	size_t current_size;
-	MemAddr best_addr;
+	size_t current_size = 0;
+	MemAddr best_addr = 0;
 	size_t best_size = 0;
-	for (address = heap->use_start; address < heap->use_size - size; address++) {
+	for (address = heap->use_start; address < heap->use_size; address++) {
 		if (os_getOwner(heap, address) == 0) {
 			current_size ++;
 		} else {

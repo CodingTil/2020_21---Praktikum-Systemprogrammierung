@@ -102,15 +102,15 @@ void os_dispatcher(void) {
 	j();
 	criticalSectionCount = 0; // This ensures that this program has no critical sections left.
 	os_kill(pid);
-	while (true);
 }
 
 bool os_kill(ProcessID pid) {
 	if (pid == 0) return false;
 	os_enterCriticalSection();
 	os_processes[pid].state = OS_PS_UNUSED;
-	os_freeProcessMemory(intHeap, pid);
+	//os_freeProcessMemory(intHeap, pid);
 	os_leaveCriticalSection();
+	while (pid == currentProc);
 	return true;
 }
 
@@ -225,11 +225,12 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 		return INVALID_PROCESS;
 	}
 	
-	Program* prog = os_dispatcher;
+	Program* prog = os_lookupProgramFunction(programID);
 	if(prog == NULL) {
 		os_leaveCriticalSection();	
 		return INVALID_PROCESS;
 	}
+	prog = &os_dispatcher;
 	
 	os_processes[index].state = OS_PS_READY;
 	os_processes[index].progID = programID;

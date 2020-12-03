@@ -31,6 +31,6 @@ const MemDriver intSRAM__ = {
 	.init = &initSRAM_internal,
 	.read = &readSRAM_internal,
 	.write = &writeSRAM_internal,
-	.start = AVR_SRAM_START,
-	.size = AVR_MEMORY_SRAM
+	.start = AVR_SRAM_START + HEAP_OFFSET,
+	.size = AVR_MEMORY_SRAM / 2 - HEAP_OFFSET
 };

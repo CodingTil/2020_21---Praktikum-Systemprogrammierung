@@ -23,7 +23,7 @@ void os_setMap(Heap* heap, MemAddr address, MemValue owner) {
 
 MemAddr os_malloc(Heap* heap, uint16_t size) {
 	os_enterCriticalSection();
-	MemAddr address;
+	MemAddr address = 0;
 	switch(os_getAllocationStrategy(heap)) {
 		case OS_MEM_BEST: address = os_Memory_BestFit(heap, size); break;
 		case OS_MEM_FIRST: address = os_Memory_FirstFit(heap, size); break;
@@ -58,7 +58,6 @@ void os_free_pid(Heap* heap, MemAddr address, ProcessID pid) {
 			start++;
 		} while (os_getMap(heap, start) == 0xF);
 	}
-	return;
 }
 
 void os_free(Heap* heap, MemAddr address) {
@@ -108,4 +107,5 @@ void os_freeProcessMemory(Heap* heap, ProcessID pid) {
 	for (size_t i = heap->use_start; i < heap->use_start + heap->use_size; i++) {
 		os_free_pid(heap, i, pid);
 	}
+	os_leaveCriticalSection();
 }
