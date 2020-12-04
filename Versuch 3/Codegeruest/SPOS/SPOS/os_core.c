@@ -141,7 +141,7 @@ void os_init(void) {
 
     os_initScheduler();
 
-	if(__heap_start > (AVR_SRAM_START + HEAPOFFSET)) {
+	if(__heap_start > (AVR_SRAM_START + HEAP_OFFSET)) {
 		os_errorPStr("Heap Offset too small!");
 	}
 	intSRAM->init();
