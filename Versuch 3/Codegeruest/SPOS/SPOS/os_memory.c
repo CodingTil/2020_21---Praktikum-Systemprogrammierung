@@ -44,6 +44,7 @@ MemValue os_getMapEntry(Heap const* heap, MemAddr addr) {
 }
 
 MemAddr os_getFirstByteOfChunk(Heap const* heap, MemAddr addr) {
+	if(addr >= heap->use_start + heap->use_size || addr < heap->use_start) return 0;
 	while (addr >= heap->use_start && os_getMapEntry(heap, addr) == 0xF) addr--;
 	return addr;
 }
@@ -83,8 +84,10 @@ MemAddr os_malloc(Heap* heap, uint16_t size) {
 		case OS_MEM_NEXT: address = os_Memory_NextFit(heap, size); break;
 		case OS_MEM_WORST: address = os_Memory_WorstFit(heap, size); break;
 	}
-	
 	if (address != 0) {
+		if(address >= heap->use_start + heap->use_size || address + size < heap->use_start) {
+			os_error("Alloc Strat wrong");
+		}
 		setMapEntry(heap, address, os_getCurrentProc());
 		for (uint16_t i = 1; i < size; i++) {
 			setMapEntry(heap, address + i, 0xF);
