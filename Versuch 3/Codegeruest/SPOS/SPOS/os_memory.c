@@ -1,5 +1,6 @@
 #include "os_memory.h"
 #include "os_memory_strategies.h"
+#include "os_core.h"
 
 void setLowNibble(Heap const *heap, MemAddr addr, MemValue value) {
 	heap->driver->write(addr, (value & 0xF) | (heap->driver->read(addr) & 0xF0));
@@ -18,6 +19,9 @@ MemValue getHighNibble(Heap const *heap, MemAddr addr) {
 }
 
 MemAddr getMapAddress(Heap const *heap, MemAddr addr) {
+	if (addr >= heap->use_start + heap->use_size || addr < heap->use_start) {
+		os_error("Heap: Out of bounds!");
+	}
 	return (addr - heap->use_start) / 2 + heap->map_start;
 }
 
@@ -40,7 +44,7 @@ MemValue os_getMapEntry(Heap const* heap, MemAddr addr) {
 }
 
 MemAddr os_getFirstByteOfChunk(Heap const* heap, MemAddr addr) {
-	while (os_getMapEntry(heap, addr) == 0xF) addr--;
+	while (addr >= heap->use_start && os_getMapEntry(heap, addr) == 0xF) addr--;
 	return addr;
 }
 
@@ -52,7 +56,7 @@ uint16_t os_getChunkSize(Heap const* heap, MemAddr addr) {
 	MemAddr start = os_getFirstByteOfChunk(heap, addr);
 	if (os_getMapEntry(heap, start) == 0) return 0;
 	uint16_t l = 1;
-	while (os_getMapEntry(heap, start + l) == 0xF) {
+	while (start + l < heap->use_start + heap->use_size && os_getMapEntry(heap, start + l) == 0xF) {
 		l++;
 	}
 	return l;
@@ -65,7 +69,7 @@ void os_freeOwnerRestricted(Heap* heap, MemAddr addr, ProcessID owner) {
 		do {
 			setMapEntry(heap, start, 0);
 			start++;
-		} while (os_getMapEntry(heap, start) == 0xF);
+		} while (start < heap->use_start + heap->use_size && os_getMapEntry(heap, start) == 0xF);
 	}
 	os_leaveCriticalSection();
 }

@@ -8,9 +8,6 @@
 #include "os_memory.h"
 #include "os_memheap_drivers.h"
 
-#include "os_memheap_drivers.h"
-#include "os_memory.h"
-
 #include <avr/interrupt.h>
 
 //----------------------------------------------------------------------------
@@ -103,7 +100,6 @@ void os_dispatcher(void) {
 	ProcessID pid = currentProc;
 	Program* j = os_lookupProgramFunction(os_processes[pid].progID);
 	j();
-	criticalSectionCount = 0; // This ensures that this program has no critical sections left.
 	os_kill(pid);
 }
 
@@ -111,7 +107,10 @@ bool os_kill(ProcessID pid) {
 	if (pid == 0) return false;
 	os_enterCriticalSection();
 	os_processes[pid].state = OS_PS_UNUSED;
-	//os_freeProcessMemory(intHeap, pid);
+	os_freeProcessMemory(intHeap, pid);
+	if (pid == currentProc) {
+		criticalSectionCount = 1; // This ensures that this program has no critical sections left.
+	}
 	os_leaveCriticalSection();
 	while (pid == currentProc);
 	return true;
@@ -240,11 +239,6 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	os_processes[index].priority = priority;
 
 	os_resetProcessSchedulingInformation(index);
-	
-	ProcessID tmp = currentProc;
-	currentProc = index;
-	prog = &os_dispatcher;
-	currentProc = tmp;
 	
 	StackPointer proccess_stack_bottom;
 	proccess_stack_bottom.as_int = PROCESS_STACK_BOTTOM(index);

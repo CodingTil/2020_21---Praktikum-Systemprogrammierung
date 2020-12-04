@@ -19,28 +19,31 @@ MemAddr os_Memory_FirstFit(Heap *heap, size_t size) {
 
 MemAddr os_Memory_NextFit(Heap *heap, size_t size) {
 	static MemAddr last_addr = 0;
-	static bool first_time = true;
-	if (first_time) {
-		first_time = false;
-		last_addr = os_Memory_FirstFit(heap, size);
-		return last_addr;
+	if (last_addr == 0) {
+		last_addr = os_Memory_FirstFit(heap, size) + size;
+		if (last_addr >= heap->use_start + heap->use_size) last_addr = heap->use_start;
+		return last_addr - size;
 	}
 	MemAddr address;
 	size_t current_size = 0;
-	for (address = last_addr; address < heap->use_size; address++) {
+	for (address = last_addr; address < heap->use_start + heap->use_size; address++) {
 		if (os_getMapEntry(heap, address) == 0) {
-			current_size ++;
+			current_size++;
 			if (current_size >= size) {
+				last_addr = address + 1;
+				if (last_addr >= heap->use_start + heap->use_size) last_addr = heap->use_start;
 				return address - size + 1;
 			}
 		} else {
 			current_size = 0;
 		}
 	}
-	for (address = heap->use_start; address < last_addr; address++) {
+	for (address = heap->use_start; address < heap->use_start + heap->use_size; address++) {
 		if (os_getMapEntry(heap, address) == 0) {
 			current_size++;
 			if (current_size >= size) {
+				last_addr = address + 1;
+				if (last_addr >= heap->use_start + heap->use_size) last_addr = heap->use_start;
 				return address - size + 1;
 			}
 		} else {
@@ -54,20 +57,20 @@ MemAddr os_Memory_BestFit(Heap *heap, size_t size) {
 	MemAddr address;
 	size_t current_size = 0;
 	MemAddr best_addr = 0;
-	size_t best_size = 0;
-	for (address = heap->use_start; address < heap->use_size; address++) {
+	uint16_t best_size = 0xFFFF;
+	for (address = heap->use_start; address < heap->use_start + heap->use_size; address++) {
 		if (os_getMapEntry(heap, address) == 0) {
 			current_size++;
 		} else {
-			if (current_size > size && current_size > best_size) {
-				best_addr = address - size - 1;
+			if (current_size >= size && current_size < best_size) {
+				best_addr = address - size + 1;
 				best_size = current_size;
 			}
 			current_size = 0;
 		}
 	}
-	if (current_size > best_size) {
-		best_addr = address - size - 1;
+	if (current_size >= size && current_size < best_size) {
+		best_addr = address - size + 1;
 	}
 	return best_addr;
 }
@@ -77,19 +80,19 @@ MemAddr os_Memory_WorstFit(Heap *heap, size_t size) {
 	size_t current_size = 0;
 	MemAddr best_addr = 0;
 	size_t best_size = 0;
-	for (address = heap->use_start; address < heap->use_size; address++) {
+	for (address = heap->use_start; address < heap->use_start + heap->use_size; address++) {
 		if (os_getMapEntry(heap, address) == 0) {
-			current_size ++;
+			current_size++;
 		} else {
-			if (current_size > size && current_size < best_size) {
-				best_addr = address - size - 1;
+			if (current_size >= size && current_size > best_size) {
+				best_addr = address - size + 1;
 				best_size = current_size;
 			}
 			current_size = 0;
 		}
 	}
-	if (current_size > size && current_size < best_size) {
-		best_addr = address - size - 1;
+	if (current_size >= size && current_size > best_size) {
+		best_addr = address - size + 1;
 	}
 	return best_addr;
 }
