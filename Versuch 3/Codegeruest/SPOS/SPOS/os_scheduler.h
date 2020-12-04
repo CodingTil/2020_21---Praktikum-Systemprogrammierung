@@ -36,9 +36,6 @@ typedef enum SchedulingStrategy {
 // Function headers
 //----------------------------------------------------------------------------
 
-void os_dispatcher(void);
-bool os_kill(ProcessID pid);
-
 //! Get a pointer to the process structure by process ID
 Process* os_getProcessSlot(ProcessID pid);
 

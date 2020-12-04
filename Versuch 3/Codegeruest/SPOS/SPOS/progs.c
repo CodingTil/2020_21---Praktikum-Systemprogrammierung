@@ -1,305 +1,272 @@
-//-------------------------------------------------
-//          TestSuite: FreeMap
-//-------------------------------------------------
+//------------------------------------------------------------
+//          TestSuite: Alloc Strategies
+//------------------------------------------------------------
 
 #include "lcd.h"
 #include "util.h"
-#include "os_scheduler.h"
+#include "os_core.h"
 #include "os_memory.h"
-#include "os_memheap_drivers.h"
+#include "os_scheduler.h"
 #include "os_input.h"
 
-#include <avr/interrupt.h>
-#include <string.h>
+#include <stdlib.h>
 
-//! The heap-driver we expect to find at position 0 of the heap-list
+#define DELAY 100
+
 #define DRIVER intHeap
-//! Number of bytes we allocate by hand. Must be even and >2.
-#define SIZE 10
-//! The minimal size of the map we accept
-#define MAPSIZE 100
-
-//! Defines if the first phase is executed
-#define FREEMAP_PHASE_1 (1)
-//! Defines if the second phase is executed
-#define FREEMAP_PHASE_2 (1)
-//! Defines if the third phase is executed
-#define FREEMAP_PHASE_3 (1)
-
-
-//! Output delay after writing strings to the LCD
-#define LCD_DELAY 1000
-//! Halts execution of program
-#define HALT      do{}while(1)
-
-//! Checks if all bytes in a certain memory-area are the same.
-uint8_t tt_isAreaUniform(MemAddr start, uint16_t size, MemValue byte);
-//! Prints an error message on the LCD. Then halts.
-void tt_throwError(char const* str);
-//! Prints phase information to the LCD.
-void tt_showPhase(uint8_t i, char const* name);
-//! Prints OK for the phase message.
-void tt_phaseSuccess(void);
-//! Prints FAIL for the phase message.
-void tt_phaseFail(void);
-
+/*
+ * SELECT HERE!
+ * Choose Alloc.Strats, which you want to be tested (1 = will be tested, 0 = wont be tested)
+ */
+#define FIRST   1
+#define NEXT    1
+#define BEST    1
+#define WORST   1
 
 PROGRAM(1, AUTOSTART) {
-    // If there are any problems, we set a certain bit in the bitmask
-    // "errorCode", indicating what exactly went wrong.
-    uint8_t errorCode = 0;
 
-// Phase 1: Some sanity checks
-#if FREEMAP_PHASE_1 == 1
-    tt_showPhase(1, PSTR("Sanity check"));
-    delayMs(LCD_DELAY);
-
-
-    // Check if the driver returned by lookupHeap is the correct one.
-    // If not, set bit 0
-    errorCode |= (os_lookupHeap(0) != DRIVER) << 0;
-    // Check if the mapsize of the heap is correct.
-    // If not, set bit 1
-    errorCode |= (os_getMapSize(DRIVER) < MAPSIZE) << 1;
-    // Check if the length of the heaplist is correct.
-    // If not, set bit 2
-    errorCode |= (os_getHeapListLength() != 1) << 2;
-    // Check if use- and map-area have a size relationship of 2:1.
-    // If not, set bit 3
-    errorCode |= (os_getMapSize(DRIVER) != os_getUseSize(DRIVER) - os_getMapSize(DRIVER)) << 3; 
-
-    // Output of test-results, if there was an error
-    if (errorCode) {
-        tt_phaseFail();
-        delayMs(LCD_DELAY);
-        lcd_clear();
-        lcd_writeProgString(PSTR("DRV|MAP|LST|1:2|"));
-        uint8_t errorIndex;
-        for (errorIndex = 0; errorIndex < 4; errorIndex++) {
-            if (errorCode & (1 << errorIndex)) {
-                lcd_writeProgString(PSTR("ERR|"));
-            } else {
-                lcd_writeProgString(PSTR("OK |"));
-            }
+    // Struct-Array with Alloc.Strats
+    struct {
+        AllocStrategy strat;
+        char name;
+        uint8_t check;
+    } cycle[] = {
+        {
+            .strat = OS_MEM_FIRST,
+            .name = 'f',
+            .check = FIRST
+        }, {
+            .strat = OS_MEM_NEXT,
+            .name = 'n',
+            .check = NEXT
+        }, {
+            .strat = OS_MEM_BEST,
+            .name = 'b',
+            .check = BEST
+        }, {
+            .strat = OS_MEM_WORST,
+            .name = 'w',
+            .check = WORST
         }
-        HALT;
+    };
+
+    /*
+     * Create following pattern in memory: first big, second small, rest huge
+     * X = allocated
+     * __________________________________
+     * |   |   |   | X |   |   | X |   | ...
+     * 0   5   10  15  20  25  30  35
+     *
+     * malloc and free must be working correctly
+     */
+    MemAddr p[7];
+    uint8_t s[] = {15, 5, 10, 5, 1};
+    uint8_t lastStrategy;
+    uint8_t error = 0;
+
+    // Precheck heap size
+    if (os_getUseSize(DRIVER) < 50) {
+        os_error("Heap too small");
     }
 
-    tt_phaseSuccess();
-    delayMs(LCD_DELAY);
+    os_enterCriticalSection();
     lcd_clear();
-#endif
+    lcd_writeProgString(PSTR("Check strategy.."));
+    delayMs(10 * DELAY);
+    lcd_clear();
+    os_leaveCriticalSection();
 
-// Phase 2: Malloc
-#if FREEMAP_PHASE_2 == 1
-    tt_showPhase(2, PSTR("malloc"));
-    delayMs(LCD_DELAY);
+    uint16_t i;
+    uint16_t start = os_getMapStart(DRIVER);
 
-    // We use error-codes again
-    errorCode = 0;
+    // Check if map is clean
+    for (i = 0; i < os_getMapSize(DRIVER); i++) {
+        if (DRIVER->driver->read(start + i)) {
+            os_enterCriticalSection();
+            lcd_clear();
+            lcd_writeProgString(PSTR("Map not free"));
+            while (1);
+        }
+    }
 
-    // We allocate the whole use-area with os_malloc
-    MemAddr hugeChunk = os_malloc(DRIVER, os_getUseSize(DRIVER));
-    if (hugeChunk == 0) {
-        // We could not allocate the whole use-area
-        errorCode |= 1 << 0;
+    // Check overalloc for all strategies
+    for (uint8_t strategy = 0; strategy < 4; strategy++) {
+        if (!cycle[strategy].check) {
+            continue;
+        }
+        os_setAllocationStrategy(DRIVER, cycle[strategy].strat);
+        if (os_malloc(DRIVER, os_getUseSize(DRIVER) + 1) != 0) {
+            lcd_clear();
+            lcd_writeProgString(PSTR("Overalloc"));
+            lcd_line2();
+            lcd_writeChar(cycle[strategy].name);
+            while (1);
+        }
+    }
+
+    // The test for next fit depends on not creating the memory pattern with OS_MEM_NEXT
+    os_setAllocationStrategy(DRIVER, OS_MEM_FIRST);
+    // Create pattern in memory
+    for (i = 0; i < 5; i++) {
+        p[i] = os_malloc(DRIVER, s[i]);
+    }
+    for (i = 0; i <= 4; i += 2) {
+        os_free(DRIVER, p[i]);
+    }
+
+    // Check strategies
+    for (lastStrategy = 0; lastStrategy < 4; lastStrategy++) {
+
+        if (!cycle[lastStrategy].check) {
+            continue;
+        }
+
+        lcd_clear();
+        lcd_writeProgString(PSTR("Checking strat.\n"));
+        lcd_writeChar(cycle[lastStrategy].name);
+        os_setAllocationStrategy(DRIVER, cycle[lastStrategy].strat);
+        delayMs(10 * DELAY);
+        lcd_clear();
+
+        /*
+         * We allocate, and directly free two times (except for BestFit)
+         * for NextFit we should get different addresses
+         * for FirstFit, both addresses are equal to first segment
+         * for BestFit, first address equals second segment an second address equals first segment
+         * for WorstFit we get the first byte of the rest memory
+         * otherwise we found an error
+         */
+        for (i = 5; i < 7; i++) {
+            p[i] = os_malloc(DRIVER, s[2]);
+            if (cycle[lastStrategy].strat != OS_MEM_BEST) {
+                os_free(DRIVER, p[i]);
+            }
+        }
+
+
+        // NextFit
+        if (cycle[lastStrategy].strat == OS_MEM_NEXT) {
+            if (p[5] != p[0] || p[6] != p[2]) {
+                lcd_writeProgString(PSTR("Error NextFit"));
+                delayMs(10 * DELAY);
+                error = 1;
+            } else {
+                lcd_writeProgString(PSTR("NextFit Ok"));
+            }
+            delayMs(10 * DELAY);
+        }
+
+        // FirstFit
+        else if (cycle[lastStrategy].strat == OS_MEM_FIRST) {
+            if (p[5] != p[6] || p[5] != p[0]) {
+                lcd_writeProgString(PSTR("Error FirstFit"));
+                delayMs(10 * DELAY);
+                error = 1;
+            } else {
+                lcd_writeProgString(PSTR("FirstFit Ok"));
+            }
+            delayMs(10 * DELAY);
+        }
+        // BestFit
+        else if (cycle[lastStrategy].strat == OS_MEM_BEST) {
+            if (p[5] != p[2] || p[6] != p[0]) {
+                lcd_writeProgString(PSTR("Error BestFit"));
+                delayMs(10 * DELAY);
+                error = 1;
+            } else {
+                lcd_writeProgString(PSTR("BestFit Ok"));
+            }
+            delayMs(10 * DELAY);
+
+            // Free manually as it wasn't done before
+            if (p[5]) {
+                os_free(DRIVER, p[5]);
+            }
+            if (p[6]) {
+                os_free(DRIVER, p[6]);
+            }
+        }
+        // WorstFit
+        else if (cycle[lastStrategy].strat == OS_MEM_WORST) {
+            if (p[4] != p[5] || p[5] != p[6]) {
+                lcd_writeProgString(PSTR("Error WorstFit"));
+                delayMs(10 * DELAY);
+                error = 1;
+            } else {
+                lcd_writeProgString(PSTR("WorstFit Ok"));
+            }
+            delayMs(10 * DELAY);
+        } else {
+            lcd_writeChar('e');
+        }
+    }
+
+    // Remove pattern
+    for (i = 1; i <= 3; i += 2) {
+        os_free(DRIVER, p[i]);
+    }
+
+    // Check if map is clean
+    for (i = 0; i < os_getMapSize(DRIVER); i++) {
+        if (DRIVER->driver->read(start + i)) {
+            os_enterCriticalSection();
+            lcd_clear();
+            lcd_writeProgString(PSTR("Map not free afterwards"));
+            while (1);
+        }
+    }
+
+    // Special NextFit test
+    if (NEXT) {
+        lcd_clear();
+        lcd_writeProgString(PSTR("Special NextFit test"));
+        delayMs(10 * DELAY);
+        lcd_clear();
+        os_setAllocationStrategy(DRIVER, OS_MEM_NEXT);
+        size_t rema = os_getUseSize(DRIVER);
+        for (i = 0; i < 5; i++) {
+            rema -= s[i];
+        }
+        p[0] = os_malloc(DRIVER, rema);
+        os_free(DRIVER, p[0]);
+        for (i = 0; i < 3; i++) {
+            p[i] = os_malloc(DRIVER, s[i]);
+        }
+        rema = os_getUseSize(DRIVER) - (s[0] + s[1] + s[2]);
+        os_malloc(DRIVER, rema);
+        for (i = 1; i < 3; i++) {
+            os_free(DRIVER, p[i]);
+        }
+        p[1] = os_malloc(DRIVER, s[1]);
+        os_free(DRIVER, p[1]);
+        if (!os_malloc(DRIVER, s[1] + s[2])) {
+            os_enterCriticalSection();
+            lcd_clear();
+            lcd_writeProgString(PSTR("Error Next Fit (special)"));
+            delayMs(10 * DELAY);
+            error = 1;
+        } else {
+            lcd_writeProgString(PSTR("Ok"));
+            delayMs(10 * DELAY);
+        }
+    }
+
+    lcd_clear();
+    if (!error) {
+        lcd_writeProgString(PSTR("   All passed"));
     } else {
-        // Allocation was successful, but what does the map look like?
-        uint8_t mapEntry = (os_getCurrentProc() << 4) | 0x0F;
-        if (DRIVER->driver->read(os_getMapStart(DRIVER)) != mapEntry) {
-            // The first map-entry is wrong
-            errorCode |= 1 << 1;
-        }
-        if (!tt_isAreaUniform(os_getMapStart(DRIVER) + 1, os_getMapSize(DRIVER) - 1, 0xFF)) {
-            // The rest of the map is not filled with 0xFF
-            errorCode |= 1 << 2;
-        }
-
-        // Now we free and check if the map is correct afterwards
-        os_free(DRIVER, hugeChunk);
-        if (!tt_isAreaUniform(os_getMapStart(DRIVER), os_getMapSize(DRIVER), 0x00)) {
-            // there are some bytes in the map that are not 0
-            errorCode |= 1 << 3;
-        }
+        lcd_writeProgString(PSTR("Check failed"));
+        while (1);
     }
-
-    // Output of test-results, if there was an error
-    if (errorCode) {
-        tt_phaseFail();
-        delayMs(LCD_DELAY);
-        lcd_clear();
-        lcd_writeProgString(PSTR("MAL|OWN|FIL|FRE|"));
-        lcd_line2();
-        uint8_t errorIndex;
-        for (errorIndex = 0; errorIndex < 4; errorIndex++) {
-            if (errorCode & (1 << errorIndex)) {
-                lcd_writeProgString(PSTR("ERR|"));
-            } else {
-                lcd_writeProgString(PSTR("OK |"));
-            }
-        }
-        HALT;
-    }
-
-    tt_phaseSuccess();
-    delayMs(LCD_DELAY);
-    lcd_clear();
-#endif
-
-// Phase 3: Free
-#if FREEMAP_PHASE_3 == 1
-    tt_showPhase(3, PSTR("free"));
-    delayMs(LCD_DELAY);
-
-    /*  Calculating the map-address for our hand-allocated block of memory.
-     *  The block will be at the very end of the use-area because we write
-     *  into the very end of the map-area 
-	 */
-    uint16_t addr = os_getUseStart(DRIVER);
-    addr -= SIZE / 2;
-
-    // We build the first two entries of the map-area
-    ProcessID process = os_getCurrentProc();
-    process = (process << 4) | 0xF;
-
-    /* Now we allocate memory by hand. This is done in two steps. First we
-     * write the process-byte which contains the owner and an 0xF, then we
-     * write the remaining 0xF until we allocated the memory we need.
-	 */
-    DRIVER->driver->write(addr, process);
-    uint8_t i;
-    for (i = 1; i < SIZE / 2; i++) {
-        DRIVER->driver->write(addr + i, 0xFF);
-    }
-    // Fill the first half of the block with 0xFF
-    for (i = 0; i < SIZE / 2; i++) {
-        DRIVER->driver->write(addr + (SIZE / 2) + i, 0xFF);
-    }
-
-    // Determine use address by calculating offset of map-entry to mapstart
-    MemAddr  useaddr = ((addr - os_getMapStart(DRIVER)) * 2) + os_getUseStart(DRIVER);
-
-    /* Free map
-     * Expected state: free map + #SIZE/2 byte (0xFF) at the beginning of
-     * use-area. If free is implemented wrongly, it will also zero out the
-     * 0xFF at the beginning of the use-area 
-	 */
-    os_free(DRIVER, useaddr);
-
-    // Just like in phase 1 we use a bitmap to store errors
-    errorCode = 0;
-
-    // Check map data
-    for (i = 0; i < SIZE / 2; i++) {
-        if (DRIVER->driver->read(addr + i)) {
-            // The map was not freed
-            errorCode |= 1 << 0;
-        }
-    }
-
-    // Check map data
-    for (i = SIZE / 2; i < SIZE; i++) {
-        if (!(DRIVER->driver->read(addr + i) == 0xFF)) {
-            // The use area was touched
-            errorCode |= 1 << 1;
-        }
-    }
-
-    // Output of test-results, if there was an error
-    if (errorCode) {
-        tt_phaseFail();
-        delayMs(LCD_DELAY);
-        lcd_clear();
-        lcd_writeProgString(PSTR("MAP|USE|"));
-        lcd_line2();
-        uint8_t errorIndex;
-        for (errorIndex = 0; errorIndex < 2; errorIndex++) {
-            if (errorCode & (1 << errorIndex)) {
-                lcd_writeProgString(PSTR("ERR|"));
-            } else {
-                lcd_writeProgString(PSTR("OK |"));
-            }
-        }
-        HALT;
-    }
-
-
-    tt_phaseSuccess();
-    delayMs(LCD_DELAY);
-    lcd_clear();
-#endif
-
-    // SUCCESS
-	lcd_clear();
-	lcd_writeProgString(PSTR("ALL TESTS PASSED"));
 	lcd_line2();
 	lcd_writeProgString(PSTR(" PLEASE CONFIRM!"));
 	os_waitForInput();
 	os_waitForNoInput();
-	lcd_clear();
-	lcd_writeProgString(PSTR("WAITING FOR"));
-	lcd_line2();
-	lcd_writeProgString(PSTR("TERMINATION"));
-	delayMs(LCD_DELAY);
+    delayMs(10 * DELAY);
 
-}
-
-/*!
- * Checks if all bytes in a certain memory-area are the same.
- * \param  start First address of area
- * \param  size  Length of area in bytes
- * \param  byte  Byte that is supposed to appear in this area
- */
-uint8_t tt_isAreaUniform(MemAddr start, uint16_t size, MemValue byte) {
-    uint16_t i;
-    for (i = 0; i < size; i++) {
-        if (DRIVER->driver->read(start + i) != byte) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-/*!
- * Prints an error message on the LCD. Then halts.
- * \param  *str Message to print
- */
-void tt_throwError(char const* str) {
     lcd_clear();
-    lcd_line1();
-    lcd_writeProgString(PSTR("Error:"));
+    lcd_writeProgString(PSTR("WAITING FOR"));
     lcd_line2();
-    lcd_writeProgString(str);
-    HALT;
+    lcd_writeProgString(PSTR("TERMINATION"));
+    delayMs(1000);
 }
-
-/*!
- * Prints phase information to the LCD.
- * \param  i    Index of phase
- * \param *name Name of phase
- */
-void tt_showPhase(uint8_t i, char const* name) {
-    lcd_clear();
-    lcd_writeProgString(PSTR("Phase "));
-    lcd_writeDec(i);
-    lcd_writeChar(':');
-    lcd_line2();
-    lcd_writeProgString(name);
-}
-
-/*!
- * Prints OK for the phase message.
- */
-void tt_phaseSuccess(void) {
-    lcd_goto(2, 15);
-    lcd_writeProgString(PSTR("OK"));
-}
-
-/*!
- * Prints FAIL for the phase message.
- */
-void tt_phaseFail(void) {
-    lcd_goto(2, 13);
-    lcd_writeProgString(PSTR("FAIL"));
-}
-
