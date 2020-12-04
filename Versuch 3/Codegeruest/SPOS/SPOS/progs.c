@@ -18,10 +18,10 @@
  * SELECT HERE!
  * Choose Alloc.Strats, which you want to be tested (1 = will be tested, 0 = wont be tested)
  */
-#define FIRST   1
+#define FIRST   0
 #define NEXT    1
-#define BEST    1
-#define WORST   1
+#define BEST    0
+#define WORST   0
 
 PROGRAM(1, AUTOSTART) {
 
