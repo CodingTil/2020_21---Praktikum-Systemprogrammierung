@@ -4,8 +4,9 @@
 #include "os_mem_drivers.h"
 #include <stddef.h>
 #include "util.h"
+#include "defines.h"
 
-extern const PROGMEM char intStr[];
+extern char PROGMEM const intStr[];
 
 typedef enum AllocStrategy {
 	OS_MEM_FIRST,
@@ -15,16 +16,17 @@ typedef enum AllocStrategy {
 } AllocStrategy;
 
 typedef struct Heap {
-	MemDriver const *driver;
+	MemDriver *driver;
 	MemAddr map_start;
 	uint16_t map_size;
 	MemAddr use_start;
 	uint16_t use_size;
 	AllocStrategy alloc_strategy;
-	const char* name;
+	char const* const name;
+	MemAddr last_addr;
 } Heap;
 
-Heap intHeap__;
+extern Heap intHeap__;
 #define intHeap (&intHeap__)
 
 void os_initHeaps(void);
