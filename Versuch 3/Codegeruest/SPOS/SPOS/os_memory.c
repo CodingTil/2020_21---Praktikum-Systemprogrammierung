@@ -20,7 +20,7 @@ MemValue getHighNibble(Heap const *heap, MemAddr addr) {
 
 MemAddr getMapAddress(Heap const *heap, MemAddr addr) {
 	if (addr >= heap->use_start + heap->use_size || addr < heap->use_start) {
-		//os_error("Heap: Out of bounds!");
+		os_error("Heap: Out of bounds!");
 	}
 	return (addr - heap->use_start) / 2 + heap->map_start;
 }
@@ -29,7 +29,7 @@ void setMapEntry(Heap* heap, MemAddr addr, MemValue value) {
 	MemAddr map_addr = getMapAddress(heap, addr);
 	if ((addr - heap->use_start) % 2 == 0) {
 		setHighNibble(heap, map_addr, value);
-		} else {
+	} else {
 		setLowNibble(heap, map_addr, value);
 	}
 }
@@ -38,12 +38,13 @@ MemValue os_getMapEntry(Heap const* heap, MemAddr addr) {
 	MemAddr map_addr = getMapAddress(heap, addr);
 	if ((addr - heap->use_start) % 2 == 0) {
 		return getHighNibble(heap, map_addr);
-		} else {
+	} else {
 		return getLowNibble(heap, map_addr);
 	}
 }
 
 MemAddr os_getFirstByteOfChunk(Heap const* heap, MemAddr addr) {
+	if(addr >= heap->use_start + heap->use_size || addr < heap->use_start) return 0;
 	while (addr >= heap->use_start && os_getMapEntry(heap, addr) == 0xF) addr--;
 	return addr;
 }
@@ -65,6 +66,10 @@ uint16_t os_getChunkSize(Heap const* heap, MemAddr addr) {
 void os_freeOwnerRestricted(Heap* heap, MemAddr addr, ProcessID owner) {
 	os_enterCriticalSection();
 	MemAddr start = os_getFirstByteOfChunk(heap, addr);
+	if (start >= heap->use_start + heap->use_size || start < heap->use_start) {
+		os_leaveCriticalSection();
+		return;
+	}
 	if ((ProcessID) os_getMapEntry(heap, start) == owner) {
 		do {
 			setMapEntry(heap, start, 0);
@@ -83,8 +88,10 @@ MemAddr os_malloc(Heap* heap, uint16_t size) {
 		case OS_MEM_NEXT: address = os_Memory_NextFit(heap, size); break;
 		case OS_MEM_WORST: address = os_Memory_WorstFit(heap, size); break;
 	}
-	
 	if (address != 0) {
+		if(address >= heap->use_start + heap->use_size || address + size < heap->use_start) {
+			os_error("Alloc Strat wrong");
+		}
 		setMapEntry(heap, address, os_getCurrentProc());
 		for (uint16_t i = 1; i < size; i++) {
 			setMapEntry(heap, address + i, 0xF);

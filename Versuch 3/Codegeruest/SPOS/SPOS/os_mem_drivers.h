@@ -15,7 +15,7 @@ typedef struct MemDriver {
 	void (*write)(MemAddr addr, MemValue value);
 } MemDriver;
 
-const MemDriver intSRAM__;
+extern MemDriver intSRAM__;
 #define intSRAM (&intSRAM__)
 
 #endif /* OS_MEM_DRIVERS_H_ */

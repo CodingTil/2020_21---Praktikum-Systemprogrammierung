@@ -1,6 +1,17 @@
 #include "os_memheap_drivers.h"
 
-const PROGMEM char intStr[] = "internal";
+char PROGMEM const intStr[] = "internal";
+
+Heap intHeap__ = {
+	.driver = intSRAM,
+	.map_start = AVR_SRAM_START + HEAP_OFFSET,
+	.map_size = (AVR_MEMORY_SRAM / 2 - HEAP_OFFSET) / 3,
+	.use_start = AVR_SRAM_START + HEAP_OFFSET + (AVR_MEMORY_SRAM / 2 - HEAP_OFFSET) / 3,
+	.use_size = ((AVR_MEMORY_SRAM / 2 - HEAP_OFFSET) / 3) * 2,
+	.alloc_strategy = OS_MEM_FIRST,
+	.name = intStr,
+	.last_addr = AVR_SRAM_START + HEAP_OFFSET + (AVR_MEMORY_SRAM / 2 - HEAP_OFFSET) / 3
+};
 
 void os_initHeap(Heap heap) {
 	for (MemAddr i = heap.map_start; i < heap.use_start; i++) {
@@ -9,13 +20,6 @@ void os_initHeap(Heap heap) {
 }
 
 void os_initHeaps(void) {
-	intHeap__.driver = intSRAM;
-	intHeap__.map_start = intSRAM->start;
-	intHeap__.map_size = intSRAM->size / 3;
-	intHeap__.use_start = intSRAM->start + intSRAM->size / 3;
-	intHeap__.use_size = (intSRAM->size / 3) * 2;
-	intHeap__.alloc_strategy = OS_MEM_FIRST;
-	intHeap__.name = intStr;
 	os_initHeap(intHeap__);
 }
 
