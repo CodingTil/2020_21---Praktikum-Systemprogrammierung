@@ -18,50 +18,24 @@ MemAddr os_Memory_FirstFit(Heap *heap, size_t size) {
 	return 0;
 }
 
-MemAddr last_addr = 0;
-
 MemAddr os_Memory_NextFit(Heap *heap, size_t size) {
-	if (last_addr == 0) {
-		last_addr = os_Memory_FirstFit(heap, size) + size;
-		if (last_addr == heap->use_start + heap->use_size) { // Kann nur == sein, sonst Fehler in os_Memory_FirstFit
-			last_addr = heap->use_start;
-			return heap->use_start + heap->use_size - size;
-		}else if (last_addr > heap->use_start + heap->use_size) {
-			os_error("Error in FirstFit");
-			last_addr = 0;
-		}
-		return last_addr - size;
-	}
 	MemAddr address;
 	size_t current_size = 0;
-	for (address = last_addr; address < heap->use_start + heap->use_size; address++) {
+	for (address = heap->last_addr; address < heap->use_start + heap->use_size; address++) {
 		if (os_getMapEntry(heap, address) == 0) {
 			current_size++;
 			if (current_size >= size) {
-				last_addr = address + 1;
-				if (last_addr >= heap->use_start + heap->use_size) {
-					last_addr = heap->use_start;
-				}
+				heap->last_addr = address + 1;
 				return address - current_size + 1;
 			}
 		} else {
 			current_size = 0;
 		}
 	}
-	current_size = 0;
-	for (address = heap->use_start; address < heap->use_start + heap->use_size; address++) {
-		if (os_getMapEntry(heap, address) == 0) {
-			current_size++;
-			if (current_size >= size) {
-				last_addr = address + 1;
-				if (last_addr >= heap->use_start + heap->use_size) {
-					last_addr = heap->use_start;
-				}
-				return address - current_size + 1;
-			}
-			} else {
-			current_size = 0;
-		}
+	address = os_Memory_FirstFit(heap, size);
+	if (address != 0) {
+		heap->last_addr = address + size;
+		return address;
 	}
 	return 0;
 }
