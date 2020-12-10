@@ -7,6 +7,7 @@
 
 MemAddr os_malloc(Heap* heap, size_t size);
 void os_free(Heap* heap, MemAddr addr);
+MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size);
 
 MemValue os_getMapEntry(Heap const *heap, MemAddr addr);
 

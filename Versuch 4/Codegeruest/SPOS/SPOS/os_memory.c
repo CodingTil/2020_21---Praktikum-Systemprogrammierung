@@ -136,3 +136,76 @@ void os_freeProcessMemory(Heap* heap, ProcessID pid) {
 	}
 	os_leaveCriticalSection();
 }
+
+void moveChunk(Heap* heap, MemAddr oldChunk, size_t oldSize, MemAddr newChunk, size_t newSize) {
+	if(newSize > oldSize) {
+		for(size_t i = 0; i < newSize; i++) {
+			if(os_getMapEntry(heap, oldChunk) == 0xF || os_getMapEntry(heap, oldChunk) == os_getCurrentProc()) {
+				setMapEntry(heap, newChunk, os_getMapEntry(heap, oldChunk));
+			}else {
+				setMapEntry(heap, newChunk, 0xF)
+			}
+			heap->driver->write(oldChunk, heap->driver->read(newChunk));
+			oldChunk++;
+			newChunk++;
+		}
+	}
+}
+
+MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
+	os_enterCriticalSection();
+	if ((ProcessID) os_getMapEntry(heap, addr) != os_getCurrentProc()) {
+		os_leaveCriticalSection();
+		return 0;
+	}
+	
+	size_t oldSize = os_getChunkSize(heap, addr);
+	
+	if(size <= oldSize) {
+		for(MemAddr i = addr + size; i < addr + oldSize; i++) {
+			setMapEntry(heap, i, 0);
+		}
+		return addr;
+	}
+	
+	// Find after
+	for(size_t i = 0; i < heap->use_start + heap->use_size; i++) {
+		if(os_getMapEntry(heap, addr + oldSize + i) != 0) {
+			break;
+		}else {
+			if(oldSize + i >= size) {
+				moveChunk(heap, addr, oldSize, addr, size);
+				os_leaveCriticalSection();
+				return addr;
+			}
+		}
+	}
+	
+	//Find before
+	if(addr > heap->use_start) {
+		for(MemAddr i = addr - 1; i >= heap->use_start; i--) {
+			if(os_getMapEntry(heap, i) != 0) {
+				break;
+			}else {
+				if((addr - i) + oldSize >= size) {
+					// Jump to front of free chunk
+					while(i >= heap->use_start && os_getMapEntry(heap, i) == 0) {
+						i--;
+					}
+					moveChunk(Heap, addr, oldSize, i, size);
+					os_leaveCriticalSection();
+					return i;
+				}
+			}
+		}
+	}
+	
+	// Finding any free chunk
+	MemAddr newChunk = os_malloc(heap, size);
+	if(newChunk != 0) {
+		moveChunk(heap, addr, oldSize, newChunk, size);
+	}
+	
+	os_leaveCriticalSection();
+	return 0;
+}

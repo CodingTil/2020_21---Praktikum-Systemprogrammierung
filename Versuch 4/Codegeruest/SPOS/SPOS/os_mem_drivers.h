@@ -18,4 +18,9 @@ typedef struct MemDriver {
 extern MemDriver intSRAM__;
 #define intSRAM (&intSRAM__)
 
+extern MemDriver extSRAM__;
+#define  extSRAM (&extSRAM__)
+
+void initMemoryDevices(void);
+
 #endif /* OS_MEM_DRIVERS_H_ */
