@@ -27,7 +27,7 @@ void writeSRAM_internal(MemAddr addr, MemValue value) {
 	*((MemValue*) addr) = value;
 }
 
-const MemDriver intSRAM__ = {
+MemDriver intSRAM__ = {
 	.init = &initSRAM_internal,
 	.read = &readSRAM_internal,
 	.write = &writeSRAM_internal,

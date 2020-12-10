@@ -66,6 +66,10 @@ uint16_t os_getChunkSize(Heap const* heap, MemAddr addr) {
 void os_freeOwnerRestricted(Heap* heap, MemAddr addr, ProcessID owner) {
 	os_enterCriticalSection();
 	MemAddr start = os_getFirstByteOfChunk(heap, addr);
+	if (start >= heap->use_start + heap->use_size || start < heap->use_start) {
+		os_leaveCriticalSection();
+		return;
+	}
 	if ((ProcessID) os_getMapEntry(heap, start) == owner) {
 		do {
 			setMapEntry(heap, start, 0);
