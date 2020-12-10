@@ -7,6 +7,7 @@
 #include "defines.h"
 
 extern char PROGMEM const intStr[];
+extern char PROGMEM const extStr[];
 
 typedef enum AllocStrategy {
 	OS_MEM_FIRST,
@@ -28,6 +29,9 @@ typedef struct Heap {
 
 extern Heap intHeap__;
 #define intHeap (&intHeap__)
+
+extern Heap extHeap__;
+#define extHeap (&extHeap__)
 
 void os_initHeaps(void);
 uint8_t os_getHeapListLength(void);
