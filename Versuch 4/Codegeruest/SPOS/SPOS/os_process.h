@@ -55,6 +55,8 @@ typedef struct {
 	Priority priority;
 	StackPointer sp;
 	StackChecksum checksum;
+	MemAddr extHeap_first;
+	MemAddr extHeap_last;
 } Process;
 
 //! This is the type of a program function (not the pointer to one!).

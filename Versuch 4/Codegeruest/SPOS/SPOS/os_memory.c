@@ -96,7 +96,18 @@ MemAddr os_malloc(Heap* heap, uint16_t size) {
 		for (uint16_t i = 1; i < size; i++) {
 			setMapEntry(heap, address + i, 0xF);
 		}
+		
+		if(heap == extHeap) { // optimization strategy
+			Process* current_proc = os_getProcessSlot(os_getCurrentProc());
+			if(current_proc->extHeap_first == 0 || current_proc->extHeap_first > address) {
+				current_proc->extHeap_first = address;
+			}
+			if(current_proc->extHeap_last == 0 || current_proc->extHeap_last < address + size) {
+				current_proc->extHeap_last = address + size;
+			}
+		}
 	}
+	
 	os_leaveCriticalSection();
 	return address;
 }
@@ -131,8 +142,24 @@ void os_setAllocationStrategy(Heap* heap, AllocStrategy allocStrat) {
 
 void os_freeProcessMemory(Heap* heap, ProcessID pid) {
 	os_enterCriticalSection();
-	for (size_t i = heap->use_start; i < heap->use_start + heap->use_size; i++) {
-		os_freeOwnerRestricted(heap, i, pid);
+	if(heap == intHeap) {
+		for (size_t i = heap->use_start; i < heap->use_start + heap->use_size; i++) {
+			os_freeOwnerRestricted(heap, i, pid);
+		}
+	}else if(heap == extHeap) { // Use optimization strategy
+		Process* current_proc = os_getProcessSlot(os_getCurrentProc());
+		
+		MemAddr start = heap->use_start;
+		if(heap->use_start < current_proc->extHeap_first)
+			start = current_proc->extHeap_first;
+			
+		MemAddr end = heap->use_start + heap->use_size;
+		if(heap->use_start + heap->use_size < current_proc->extHeap_first)
+			start = current_proc->extHeap_first;
+		
+		for (size_t i = start; i < end; i++) {
+			os_freeOwnerRestricted(heap, i, pid);
+		}
 	}
 	os_leaveCriticalSection();
 }
