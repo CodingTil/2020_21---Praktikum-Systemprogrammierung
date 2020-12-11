@@ -2,6 +2,7 @@
 #define OS_MEMHEAP_DRIVERS_H_
 
 #include "os_mem_drivers.h"
+#include "os_spi.h"
 #include <stddef.h>
 #include "util.h"
 #include "defines.h"
