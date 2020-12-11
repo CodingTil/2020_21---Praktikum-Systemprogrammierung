@@ -1,6 +1,9 @@
 #ifndef OS_SPI_H_
 #define OS_SPI_H_
 
+#include <avr/io.h>
+#include <stdint.h>
+
 #define EXT_SRAM_START 0
 #define EXT_MEMORY_SRAM 64000
 

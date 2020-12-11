@@ -1,6 +1,38 @@
 #include "os_mem_drivers.h"
 #include "defines.h"
 #include "os_spi.h"
+#include "util.h"
+
+void select_memory() {
+	PORTB |= (1 << SPI_CS);
+}
+
+void deselect_memory() {
+	PORTB &= ~(1 << SPI_CS);
+}
+
+void set_operation_mode(uint8_t mode) {
+	select_memory();
+	os_spi_send(SPI_INS_WRMR);
+	os_spi_send(mode);
+	deselect_memory();
+}
+
+void transfer_adress(MemAddr addr) { // 16-bit in 2 bytes
+	os_spi_send((uint8_t) (addr >> 8));
+	os_spi_send((uint8_t) (addr & 0x0F));
+}
+
+/*
+uint8_t applyDataOrder(uint8_t data) {
+	if(SPI_DATORD) { // Swap on LSB
+		data = (data & 0xF0) >> 4 | (data & 0x0F) << 4;
+		data = (data & 0xCC) >> 2 | (data & 0x33) << 2;
+		data = (data & 0xAA) >> 1 | (data & 0x55) << 1;
+	}
+	return data;
+}
+*/
 
 void initSRAM_internal(void) {
 }
@@ -24,14 +56,11 @@ MemDriver intSRAM__ = {
 void initSRAM_external(void) {
 	os_spi_init();
 	// Set Dataorder
-	if(SPI_DATORD) sbi(SPCR, DORD);
-	else		   cbi(SPCR, DORD);
+	cbi(SPCR, DORD);
 	// Set Polarity
-	if(SPI_POL) sbi(SPCR, CPOL);
-	else		sbi(SPCR, CPOL);
+	sbi(SPCR, CPOL);
 	// Set Phase
-	if(SPI_PHA)	sbi(SPCR, CPHA);
-	else		cbi(SPCR, CPHA);
+	cbi(SPCR, CPHA);
 	// Configure CS
 	DDRB |= (1 << SPI_CS);
 	deselect_memory();
@@ -41,48 +70,19 @@ void initSRAM_external(void) {
 
 MemValue readSRAM_external(MemAddr addr) {
 	select_memory();
-	os_spi_send(applyDataOrder(SPI_INS_WRITE));
-	transfer_adress(applyDataOrder(addr));
-	uint8_t result = applyDataOrder(os_spi_receive());
+	os_spi_send(SPI_INS_WRITE);
+	transfer_adress(addr);
+	uint8_t result = os_spi_receive();
 	deselect_memory();
 	return result;
 }
 
 void writeSRAM_external(MemAddr addr, MemValue value) {
 	select_memory();
-	os_spi_send(applyDataOrder(SPI_INS_WRITE));
-	transfer_adress(applyDataOrder(addr));
-	os_spi_send(applyDataOrder(value));
+	os_spi_send(SPI_INS_WRITE);
+	transfer_adress(addr);
+	os_spi_send(value);
 	deselect_memory();
-}
-
-void select_memory() {
-	PORTB |= (1 << SPI_CS);
-}
-
-void deselect_memory() {
-	PORTB &= ~(1 << SPI_CS);
-}
-
-void set_operation_mode(uint8_t mode) {
-	select_memory();
-	os_spi_send(applyDataOrder(SPI_INS_WRMR));
-	os_spi_send(applyDataOrder(mode));
-	deselect_memory();
-}
-
-void transfer_adress(MemAddr addr) { // 16-bit in 2 bytes
-	os_spi_send((uint8_t) (addr >> 8));
-	os_spi_send((uint8_t) (addr & 0x0F));
-}
-
-uint8_t applyDataOrder(uint8_t data) {
-	if(SPI_DATORD) { // Swap on LSB
-		data = (data & 0xF0) >> 4 | (data & 0x0F) << 4;
-		data = (data & 0xCC) >> 2 | (data & 0x33) << 2;
-		data = (data & 0xAA) >> 1 | (data & 0x55) << 1;
-	}
-	return data;
 }
 
 MemDriver extSRAM__ = {

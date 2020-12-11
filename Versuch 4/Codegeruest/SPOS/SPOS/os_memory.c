@@ -143,7 +143,7 @@ void moveChunk(Heap* heap, MemAddr oldChunk, size_t oldSize, MemAddr newChunk, s
 			if(os_getMapEntry(heap, oldChunk) == 0xF || os_getMapEntry(heap, oldChunk) == os_getCurrentProc()) {
 				setMapEntry(heap, newChunk, os_getMapEntry(heap, oldChunk));
 			}else {
-				setMapEntry(heap, newChunk, 0xF)
+				setMapEntry(heap, newChunk, 0xF);
 			}
 			heap->driver->write(oldChunk, heap->driver->read(newChunk));
 			oldChunk++;
@@ -192,7 +192,7 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 					while(i >= heap->use_start && os_getMapEntry(heap, i) == 0) {
 						i--;
 					}
-					moveChunk(Heap, addr, oldSize, i, size);
+					moveChunk(heap, addr, oldSize, i, size);
 					os_leaveCriticalSection();
 					return i;
 				}

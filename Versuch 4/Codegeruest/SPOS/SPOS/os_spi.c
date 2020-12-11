@@ -1,4 +1,6 @@
 #include "os_spi.h"
+#include "os_scheduler.h"
+#include "util.h"
 
 #define DUMMY_BYTE 0xFF
 

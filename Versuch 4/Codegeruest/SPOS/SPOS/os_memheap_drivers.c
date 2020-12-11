@@ -15,7 +15,7 @@ Heap intHeap__ = {
 };
 
 Heap extHeap__ = {
-	.driver = extHeap,
+	.driver = extSRAM,
 	.map_start = EXT_SRAM_START,
 	.map_size = EXT_MEMORY_SRAM / 3,
 	.use_start = EXT_SRAM_START + EXT_MEMORY_SRAM / 3,
