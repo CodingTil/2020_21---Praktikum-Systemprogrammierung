@@ -9,10 +9,6 @@
 
 #define SPI_CS 4 // Pin 4 Port B
 
-#define SPI_DATORD 0 // LSB = 1, MSB = 0
-#define SPI_POL 0 // idle Low, active High
-#define SPI_PHA 0 // Leading Edge
-
 //[Instruction Set]
 #define SPI_INS_READ 0x03
 #define SPI_INS_WRITE 0x02
