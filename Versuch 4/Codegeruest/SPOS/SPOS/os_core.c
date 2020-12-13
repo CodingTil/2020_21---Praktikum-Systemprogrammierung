@@ -135,7 +135,7 @@ void os_init(void) {
 		os_error("Increase Heap Offset!");
 	}
 	
-	intSRAM->init();
+	initMemoryDevices();
 
 	os_initHeaps();
 
