@@ -228,6 +228,12 @@
     <Compile Include="os_scheduling_strategies.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="os_spi.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="os_spi.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="os_taskman.c">
       <SubType>compile</SubType>
     </Compile>
