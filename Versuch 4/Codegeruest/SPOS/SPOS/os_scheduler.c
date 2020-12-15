@@ -108,6 +108,7 @@ bool os_kill(ProcessID pid) {
 	os_enterCriticalSection();
 	os_processes[pid].state = OS_PS_UNUSED;
 	os_freeProcessMemory(intHeap, pid);
+	os_freeProcessMemory(extHeap, pid);
 	if (pid == currentProc) {
 		criticalSectionCount = 1; // This ensures that this program has no critical sections left.
 	}

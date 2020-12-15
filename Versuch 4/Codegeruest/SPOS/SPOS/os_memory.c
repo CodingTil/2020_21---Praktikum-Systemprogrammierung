@@ -92,9 +92,17 @@ MemAddr os_malloc(Heap* heap, uint16_t size) {
 		if(address >= heap->use_start + heap->use_size || address + size < heap->use_start) {
 			os_error("Alloc Strat wrong");
 		}
-		setMapEntry(heap, address, os_getCurrentProc());
+		ProcessID cp = os_getCurrentProc();
+		setMapEntry(heap, address, cp);
 		for (uint16_t i = 1; i < size; i++) {
 			setMapEntry(heap, address + i, 0xF);
+		}
+		
+		if (heap->first_used[cp] == 0 || address < heap->first_used[cp]) {
+			heap->first_used[cp] = address;
+		}
+		if (heap->last_used[cp] == 0 || address > heap->last_used[cp]) {
+			heap->last_used[cp] = address;
 		}
 	}
 	os_leaveCriticalSection();
@@ -131,8 +139,108 @@ void os_setAllocationStrategy(Heap* heap, AllocStrategy allocStrat) {
 
 void os_freeProcessMemory(Heap* heap, ProcessID pid) {
 	os_enterCriticalSection();
-	for (size_t i = heap->use_start; i < heap->use_start + heap->use_size; i++) {
+	MemAddr start = heap->first_used[pid];
+	MemAddr end = heap->last_used[pid];
+	if (start == 0) {
+		start = heap->use_start;
+	}
+	if (end == 0) {
+		end = heap->use_start + heap->use_size - 1
+	}
+	for (size_t i = start; i <= end; i++) {
 		os_freeOwnerRestricted(heap, i, pid);
 	}
 	os_leaveCriticalSection();
+}
+
+void mem_copy(Heap* heap, MemAddr old_addr, MemAddr new_addr, uint16_t size_old, uint16_t size_new) {
+	if (size_new < size_old) {
+		os_error("Tried to mem_copy to a smaller size.");
+	}
+	if (old_addr > new_addr) {
+		MemAddr start = new_addr;
+		
+		setMapEntry(heap, new_addr, os_getCurrentProc());
+		heap->driver->write(new_addr, heap->driver->read(old_addr));
+		setMapEntry(heap, old_addr, 0);
+		old_addr++;
+		new_addr++;
+		
+		while (old_addr < heap->use_start + heap && os_getMapEntry(heap, old_addr) == 0) {
+			setMapEntry(heap, new_addr, 0xFF);
+			heap->driver->write(new_addr, heap->driver->read(old_addr));
+			setMapEntry(heap, old_addr, 0);
+			old_addr++;
+			new_addr++;
+		}
+		
+		for (; new_addr < start + size_new) {
+			// if we do not init values with 0 can't a process get all the heap and read it out?
+			setMapEntry(heap, new_addr, 0xFF);
+		}
+	} else {
+		MemAddr end_old = old_addr + size_old - 1;
+		MemAddr end_new = new_addr + size_new;
+		for (uint16_t i = 0; i < new_addr - old_addr; i++) {
+			setMapEntry(heap, end_new, 0xFF);
+			end_new--;
+		}
+		
+		while (os_getMapEntry(heap, end_old) == 0) {
+			setMapEntry(heap, end_new, 0xFF);
+			heap->driver->write(end_new, heap->driver->read(end_old));
+			setMapEntry(heap, end_old, 0);
+			end_old++;
+			end_new++;
+		}
+		
+		setMapEntry(heap, end_new, os_getCurrentProc());
+		heap->driver->write(end_new, heap->driver->read(end_old));
+		setMapEntry(heap, end_old, 0);
+	}
+}
+
+MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
+	os_enterCriticalSection();
+	if ((ProcessID) os_getMapEntry(heap, addr) != os_getCurrentProc()) {
+		os_leaveCriticalSection();
+		return 0;
+	}
+	
+	uint16_t current_size = os_getChunkSize(heap, addr);
+
+	// First try to append the space:
+	MemAddr after = addr + current_size;
+	for (; after < heap->use_start + heap->use_size; after++) {
+		if (os_getMapEntry(heap, after) != 0) {
+			break;
+		} else {
+			if (after >= addr + size) {
+				for (MemAddr i = addr + current_size; i < after; i++) {
+					setMapEntry(heap, addr, os_getCurrentProc());
+				}
+				os_leaveCriticalSection();
+				return addr;
+			}
+		}
+	}
+	
+	// Then try to use space before and after.
+	MemAddr before = addr;
+	while (before > Heap->use_start && os_getMapEntry(heap, before) == 0) {
+		before--;
+	}
+	if (after - before > size) {
+		mem_copy(heap, addr, before, size);
+		os_leaveCriticalSection();
+		return before;
+	}
+	
+	// Search everywhere
+	MemAddr new_addr = os_malloc(heap, size);
+	if (new_addr != 0) {
+		mem_copy(heap, addr, new_addr, size);
+	}
+	os_leaveCriticalSection();
+	return new_addr;
 }
