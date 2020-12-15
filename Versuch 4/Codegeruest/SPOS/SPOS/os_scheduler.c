@@ -238,8 +238,6 @@ ProcessID os_exec(ProgramID programID, Priority priority) {
 	os_processes[index].state = OS_PS_READY;
 	os_processes[index].progID = programID;
 	os_processes[index].priority = priority;
-	os_processes[index].extHeap_first = 0;
-	os_processes[index].extHeap_last = 0;
 
 	os_resetProcessSchedulingInformation(index);
 	
