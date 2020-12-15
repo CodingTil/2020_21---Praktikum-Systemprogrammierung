@@ -25,6 +25,8 @@ typedef struct Heap {
 	AllocStrategy alloc_strategy;
 	char const* const name;
 	MemAddr last_addr;
+	MemAddr[MAX_NUMBER_OF_PROCESSES] first_used;
+	MemAddr[MAX_NUMBER_OF_PROCESSES] last_used;
 } Heap;
 
 extern Heap intHeap__;

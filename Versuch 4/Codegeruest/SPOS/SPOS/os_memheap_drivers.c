@@ -12,7 +12,9 @@ Heap intHeap__ = {
 	.use_size = ((AVR_MEMORY_SRAM / 2 - HEAP_OFFSET) / 3) * 2,
 	.alloc_strategy = OS_MEM_FIRST,
 	.name = intStr,
-	.last_addr = AVR_SRAM_START + HEAP_OFFSET + (AVR_MEMORY_SRAM / 2 - HEAP_OFFSET) / 3
+	.last_addr = AVR_SRAM_START + HEAP_OFFSET + (AVR_MEMORY_SRAM / 2 - HEAP_OFFSET) / 3,
+	.first_used = {0},
+	.last_used = {0}
 };
 
 Heap extHeap__ = {
@@ -23,7 +25,9 @@ Heap extHeap__ = {
 	.use_size = (SPI_SRAM_SIZE / 3) * 2,
 	.alloc_strategy = OS_MEM_FIRST,
 	.name = extStr,
-	.last_addr = SPI_SRAM_START + SPI_SRAM_SIZE
+	.last_addr = SPI_SRAM_START + SPI_SRAM_SIZE,
+	.first_used = {0},
+	.last_used = {0}
 };
 
 void os_initHeap(Heap heap) {
