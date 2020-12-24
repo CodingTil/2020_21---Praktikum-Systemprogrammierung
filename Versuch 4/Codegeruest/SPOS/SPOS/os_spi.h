@@ -2,6 +2,7 @@
 #define OS_SPI_H_
 
 #include "util.h"
+#include "os_scheduler.h"
 
 #define SPI_SRAM_START 0
 #define SPI_SRAM_SIZE 65535

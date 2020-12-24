@@ -145,7 +145,7 @@ void os_freeProcessMemory(Heap* heap, ProcessID pid) {
 		start = heap->use_start;
 	}
 	if (end == 0) {
-		end = heap->use_start + heap->use_size - 1
+		end = heap->use_start + heap->use_size - 1;
 	}
 	for (size_t i = start; i <= end; i++) {
 		os_freeOwnerRestricted(heap, i, pid);
@@ -166,7 +166,7 @@ void mem_copy(Heap* heap, MemAddr old_addr, MemAddr new_addr, uint16_t size_old,
 		old_addr++;
 		new_addr++;
 		
-		while (old_addr < heap->use_start + heap && os_getMapEntry(heap, old_addr) == 0) {
+		while (old_addr < heap->use_start + heap->use_size && os_getMapEntry(heap, old_addr) == 0) {
 			setMapEntry(heap, new_addr, 0xFF);
 			heap->driver->write(new_addr, heap->driver->read(old_addr));
 			setMapEntry(heap, old_addr, 0);
@@ -174,7 +174,7 @@ void mem_copy(Heap* heap, MemAddr old_addr, MemAddr new_addr, uint16_t size_old,
 			new_addr++;
 		}
 		
-		for (; new_addr < start + size_new) {
+		for (; new_addr < start + size_new; new_addr++) {
 			// if we do not init values with 0 can't a process get all the heap and read it out?
 			setMapEntry(heap, new_addr, 0xFF);
 		}
@@ -227,11 +227,11 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 	
 	// Then try to use space before and after.
 	MemAddr before = addr;
-	while (before > Heap->use_start && os_getMapEntry(heap, before) == 0) {
+	while (before > heap->use_start && os_getMapEntry(heap, before) == 0) {
 		before--;
 	}
 	if (after - before > size) {
-		mem_copy(heap, addr, before, size);
+		mem_copy(heap, addr, before, current_size, size);
 		os_leaveCriticalSection();
 		return before;
 	}
@@ -239,7 +239,7 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 	// Search everywhere
 	MemAddr new_addr = os_malloc(heap, size);
 	if (new_addr != 0) {
-		mem_copy(heap, addr, new_addr, size);
+		mem_copy(heap, addr, new_addr, current_size, size);
 	}
 	os_leaveCriticalSection();
 	return new_addr;
