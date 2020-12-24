@@ -27,12 +27,13 @@ MemDriver intSRAM__ = {
 };
 
 void select_memory() {
-	PORTB = 0;
-	sbi(PORTB, SPI_CS);
+	//PORTB = 0;
+	cbi(PORTB, SPI_CS);
 }
 
 void deselect_memory() {
-	PORTB = 0;
+	//PORTB = 0;
+	sbi(PORTB, SPI_CS);
 }
 
 void set_operation_mode(uint8_t mode) {
@@ -57,6 +58,9 @@ uint8_t apply_endian(uint8_t value) {
 }
 
 void initSRAM_external(void) {
+	// Configure CS
+	sbi(DDRB, SPI_CS);
+	sbi(PORTB, SPI_CS);
 	os_spi_init();
 	deselect_memory();
 	set_operation_mode(0);
@@ -64,22 +68,26 @@ void initSRAM_external(void) {
 
 MemValue readSRAM_external(MemAddr addr) {
 	// CHECK IF PERMISSIONS???
+	os_enterCriticalSection();
 	select_memory();
 	os_spi_send(SPI_READ);
 	transfer_address(addr);
 	uint8_t ret = os_spi_receive();
 	deselect_memory();
 	ret = apply_endian(ret);
+	os_leaveCriticalSection();
 	return ret;
 }
 
 void writeSRAM_external(MemAddr addr, MemValue value) {
 	// CHECK IF PERMISSIONS???
+	os_enterCriticalSection();
 	select_memory();
 	os_spi_send(SPI_WRITE);
 	transfer_address(addr);
 	os_spi_send(apply_endian(value));
 	deselect_memory();
+	os_leaveCriticalSection();
 }
 
 MemDriver extSRAM__ = {
@@ -91,6 +99,6 @@ MemDriver extSRAM__ = {
 };
 
 void initMemoryDevices() {
-	intSRAM->init();
+	intSRAM->init();		
 	extSRAM->init();
 }

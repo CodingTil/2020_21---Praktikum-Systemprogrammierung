@@ -3,6 +3,8 @@
 
 #include <inttypes.h>
 
+#define SPI_CS 4
+
 #define SPI_READ 0x03
 #define SPI_WRITE 0x02
 #define SPI_WRMR 0x01

@@ -1,272 +1,165 @@
-//------------------------------------------------------------
-//          TestSuite: Alloc Strategies
-//------------------------------------------------------------
+//-------------------------------------------------
+//          TestSuite: Range
+//-------------------------------------------------
+
+
+//  NOTE:
+//  The heap cleanup must work for this test to run correctly!
+//  The run will hang, if you have a bug in the process termination.
 
 #include "lcd.h"
 #include "util.h"
-#include "os_core.h"
-#include "os_memory.h"
-#include "os_scheduler.h"
 #include "os_input.h"
+#include "os_core.h"
+#include "os_scheduler.h"
+#include "os_memory.h"
 
-#include <stdlib.h>
+#include <avr/interrupt.h>
 
 #define DELAY 100
 
 #define DRIVER intHeap
-/*
- * SELECT HERE!
- * Choose Alloc.Strats, which you want to be tested (1 = will be tested, 0 = wont be tested)
+#define DSIZE (os_getUseSize(DRIVER)/4)
+
+uint16_t size = 1;
+volatile uint16_t check_i = 0;
+//! This variable is set to true when the test program finishes
+bool terminated = false;
+
+/*!
+ * Display memory size and start test execution.
  */
-#define FIRST   1
-#define NEXT    0
-#define BEST    0
-#define WORST   0
+PROGRAM(3, AUTOSTART) {
+    // Init Timeout Timer 1
+    // CTC mode
+    TCCR1A &= ~(1 << WGM10);
+    TCCR1A &= ~(1 << WGM11);
+    TCCR1B |= (1 << WGM12);
+    TCCR1B &= ~(1 << WGM13);
 
-PROGRAM(1, AUTOSTART) {
+    // set prescaler to 1024
+    TCCR1B |=  (1 << CS12) | (1 << CS10);
+    TCCR1B &= ~(1 << CS11);
 
-    // Struct-Array with Alloc.Strats
-    struct {
-        AllocStrategy strat;
-        char name;
-        uint8_t check;
-    } cycle[] = {
-        {
-            .strat = OS_MEM_FIRST,
-            .name = 'f',
-            .check = FIRST
-        }, {
-            .strat = OS_MEM_NEXT,
-            .name = 'n',
-            .check = NEXT
-        }, {
-            .strat = OS_MEM_BEST,
-            .name = 'b',
-            .check = BEST
-        }, {
-            .strat = OS_MEM_WORST,
-            .name = 'w',
-            .check = WORST
-        }
-    };
+    // set compare register -> match every 1s
+    OCR1A = 19531;
 
-    /*
-     * Create following pattern in memory: first big, second small, rest huge
-     * X = allocated
-     * __________________________________
-     * |   |   |   | X |   |   | X |   | ...
-     * 0   5   10  15  20  25  30  35
-     *
-     * malloc and free must be working correctly
-     */
-    MemAddr p[7];
-    uint8_t s[] = {15, 5, 10, 5, 1};
-    uint8_t lastStrategy;
-    uint8_t error = 0;
+    // enable timer
+    TIMSK1 |= (1 << OCIE1A);
 
-    // Precheck heap size
-    if (os_getUseSize(DRIVER) < 50) {
-        os_error("Heap too small");
-    }
-
-    os_enterCriticalSection();
     lcd_clear();
-    lcd_writeProgString(PSTR("Check strategy.."));
-    delayMs(10 * DELAY);
+    lcd_writeProgString(PSTR("ExtSRAM Size: "));
+    lcd_line2();
+    lcd_writeDec(extSRAM->size);
+    lcd_writeChar('/');
+    lcd_writeHex(extSRAM->size);
+    delayMs(1000);
+
+    os_exec(1, DEFAULT_PRIORITY);
+}
+
+
+/*!
+ * This program tests allocation of memory of arbitrary position and size within the heap.
+ * To that end it allocates a quarter of the available memory
+ * in chunks of increasing size (from 1 to DSIZE).
+ */
+PROGRAM(1, DONTSTART) {
+    ProgramID cont = 1;
     lcd_clear();
-    os_leaveCriticalSection();
+    lcd_writeProgString(PSTR("[Testing range]"));
+    if (size <= DSIZE) {
+        lcd_line2();
+        lcd_writeProgString(PSTR("Mass alloc: "));
+        lcd_writeDec(size);
+        uint16_t i;
+        // Allocate chunks
+        for (i = 0; i < DSIZE / size; i++) {
+            if (!os_malloc(DRIVER, size)) {
+                lcd_clear();
+                lcd_writeProgString(PSTR("Could not alloc! (Phase 1)"));
+                while (1);
+            }
 
-    uint16_t i;
-    uint16_t start = os_getMapStart(DRIVER);
-
-    // Check if map is clean
-    for (i = 0; i < os_getMapSize(DRIVER); i++) {
-        if (DRIVER->driver->read(start + i)) {
-            os_enterCriticalSection();
-            lcd_clear();
-            lcd_writeProgString(PSTR("Map not free"));
-            while (1);
-        }
-    }
-
-    // Check overalloc for all strategies
-    for (uint8_t strategy = 0; strategy < 4; strategy++) {
-        if (!cycle[strategy].check) {
-            continue;
-        }
-        os_setAllocationStrategy(DRIVER, cycle[strategy].strat);
-        if (os_malloc(DRIVER, os_getUseSize(DRIVER) + 1) != 0) {
-            lcd_clear();
-            lcd_writeProgString(PSTR("Overalloc"));
+            // Print progress
+            lcd_drawBar((uint16_t)((100ul * i) / (DSIZE / size)));
             lcd_line2();
-            lcd_writeChar(cycle[strategy].name);
-            while (1);
+            lcd_writeProgString(PSTR("Mass alloc: "));
+            lcd_writeDec(size);
+            check_i = i;
+
         }
-    }
-
-    // The test for next fit depends on not creating the memory pattern with OS_MEM_NEXT
-    os_setAllocationStrategy(DRIVER, OS_MEM_FIRST);
-    // Create pattern in memory
-    for (i = 0; i < 5; i++) {
-        p[i] = os_malloc(DRIVER, s[i]);
-    }
-    for (i = 0; i <= 4; i += 2) {
-        os_free(DRIVER, p[i]);
-    }
-
-    // Check strategies
-    for (lastStrategy = 0; lastStrategy < 4; lastStrategy++) {
-
-        if (!cycle[lastStrategy].check) {
-            continue;
-        }
-
-        lcd_clear();
-        lcd_writeProgString(PSTR("Checking strat.\n"));
-        lcd_writeChar(cycle[lastStrategy].name);
-        os_setAllocationStrategy(DRIVER, cycle[lastStrategy].strat);
-        delayMs(10 * DELAY);
-        lcd_clear();
-
-        /*
-         * We allocate, and directly free two times (except for BestFit)
-         * for NextFit we should get different addresses
-         * for FirstFit, both addresses are equal to first segment
-         * for BestFit, first address equals second segment an second address equals first segment
-         * for WorstFit we get the first byte of the rest memory
-         * otherwise we found an error
-         */
-        for (i = 5; i < 7; i++) {
-            p[i] = os_malloc(DRIVER, s[2]);
-            if (cycle[lastStrategy].strat != OS_MEM_BEST) {
-                os_free(DRIVER, p[i]);
-            }
-        }
-
-
-        // NextFit
-        if (cycle[lastStrategy].strat == OS_MEM_NEXT) {
-            if (p[5] != p[0] || p[6] != p[2]) {
-                lcd_writeProgString(PSTR("Error NextFit"));
-                delayMs(10 * DELAY);
-                error = 1;
-            } else {
-                lcd_writeProgString(PSTR("NextFit Ok"));
-            }
-            delayMs(10 * DELAY);
-        }
-
-        // FirstFit
-        else if (cycle[lastStrategy].strat == OS_MEM_FIRST) {
-            if (p[5] != p[6] || p[5] != p[0]) {
-                lcd_writeProgString(PSTR("Error FirstFit"));
-                delayMs(10 * DELAY);
-                error = 1;
-            } else {
-                lcd_writeProgString(PSTR("FirstFit Ok"));
-            }
-            delayMs(10 * DELAY);
-        }
-        // BestFit
-        else if (cycle[lastStrategy].strat == OS_MEM_BEST) {
-            if (p[5] != p[2] || p[6] != p[0]) {
-                lcd_writeProgString(PSTR("Error BestFit"));
-                delayMs(10 * DELAY);
-                error = 1;
-            } else {
-                lcd_writeProgString(PSTR("BestFit Ok"));
-            }
-            delayMs(10 * DELAY);
-
-            // Free manually as it wasn't done before
-            if (p[5]) {
-                os_free(DRIVER, p[5]);
-            }
-            if (p[6]) {
-                os_free(DRIVER, p[6]);
-            }
-        }
-        // WorstFit
-        else if (cycle[lastStrategy].strat == OS_MEM_WORST) {
-            if (p[4] != p[5] || p[5] != p[6]) {
-                lcd_writeProgString(PSTR("Error WorstFit"));
-                delayMs(10 * DELAY);
-                error = 1;
-            } else {
-                lcd_writeProgString(PSTR("WorstFit Ok"));
-            }
-            delayMs(10 * DELAY);
-        } else {
-            lcd_writeChar('e');
-        }
-    }
-
-    // Remove pattern
-    for (i = 1; i <= 3; i += 2) {
-        os_free(DRIVER, p[i]);
-    }
-
-    // Check if map is clean
-    for (i = 0; i < os_getMapSize(DRIVER); i++) {
-        if (DRIVER->driver->read(start + i)) {
-            os_enterCriticalSection();
-            lcd_clear();
-            lcd_writeProgString(PSTR("Map not free afterwards"));
-            while (1);
-        }
-    }
-
-    // Special NextFit test
-    if (NEXT) {
-        lcd_clear();
-        lcd_writeProgString(PSTR("Special NextFit test"));
-        delayMs(10 * DELAY);
-        lcd_clear();
-        os_setAllocationStrategy(DRIVER, OS_MEM_NEXT);
-        size_t rema = os_getUseSize(DRIVER);
-        for (i = 0; i < 5; i++) {
-            rema -= s[i];
-        }
-        p[0] = os_malloc(DRIVER, rema);
-        os_free(DRIVER, p[0]);
-        for (i = 0; i < 3; i++) {
-            p[i] = os_malloc(DRIVER, s[i]);
-        }
-        rema = os_getUseSize(DRIVER) - (s[0] + s[1] + s[2]);
-        os_malloc(DRIVER, rema);
-        for (i = 1; i < 3; i++) {
-            os_free(DRIVER, p[i]);
-        }
-        p[1] = os_malloc(DRIVER, s[1]);
-        os_free(DRIVER, p[1]);
-        if (!os_malloc(DRIVER, s[1] + s[2])) {
-            os_enterCriticalSection();
-            lcd_clear();
-            lcd_writeProgString(PSTR("Error Next Fit (special)"));
-            delayMs(10 * DELAY);
-            error = 1;
-        } else {
-            lcd_writeProgString(PSTR("Ok"));
-            delayMs(10 * DELAY);
-        }
-    }
-
-    lcd_clear();
-    if (!error) {
-        lcd_writeProgString(PSTR("   All passed"));
+        // Increase the chunk size for next program run
+        size++;
     } else {
-        lcd_writeProgString(PSTR("Check failed"));
-        while (1);
+        // All chunk sizes done. Switch to second phase (run prog 2).
+        cont = 2;
     }
-	lcd_line2();
-	lcd_writeProgString(PSTR(" PLEASE CONFIRM!"));
-	os_waitForInput();
-	os_waitForNoInput();
-    delayMs(10 * DELAY);
+    lcd_line2();
+    lcd_writeProgString(PSTR("OK, next..."));
 
+    // Force termination and freeing of allocated memory by heap cleanup
+    // before first execution of new program instance.
+    os_enterCriticalSection();
+    os_exec(cont, DEFAULT_PRIORITY);
+}
+
+/*!
+ * This program asserts if a chunk of memory can be freed
+ * by using a pointer to a arbitrary position within the chunk.
+ */
+PROGRAM(2, DONTSTART) {
+    uint8_t accuracy = 10;
+    lcd_clear();
+    lcd_writeProgString(PSTR("[Testing range]"));
+
+    // Iterate chunk sizes
+    for (size = 1; size <= DSIZE; size++) {
+        lcd_line2();
+        lcd_writeProgString(PSTR("Random free: "));
+        lcd_writeDec(size);
+
+        uint16_t i;
+        // Try different addresses to free memory
+        for (i = 0; i < (size / accuracy); i++) {
+            uint16_t startAddress = os_malloc(DRIVER, size);
+            if (!startAddress) {
+                lcd_clear();
+                lcd_writeProgString(PSTR("Could not alloc! (Phase 2)"));
+                while (1);
+            }
+            // Use the timer counter value as "random" number
+            os_free(DRIVER, startAddress + (TCNT0 % size));
+            lcd_drawBar((100 * i) / (size / accuracy));
+            lcd_line2();
+            lcd_writeProgString(PSTR("Random free: "));
+            lcd_writeDec(size);
+        }
+    }
+
+    // SUCCESS
+    terminated = true;
+    lcd_clear();
+    lcd_writeProgString(PSTR("ALL TESTS PASSED"));
+    lcd_line2();
+    lcd_writeProgString(PSTR(" PLEASE CONFIRM!"));
+    os_waitForInput();
+    os_waitForNoInput();
     lcd_clear();
     lcd_writeProgString(PSTR("WAITING FOR"));
     lcd_line2();
     lcd_writeProgString(PSTR("TERMINATION"));
     delayMs(1000);
+
+}
+
+/*
+ * Timeout ISR
+ */
+ISR(TIMER1_COMPA_vect) {
+    // counts seconds
+    static int16_t timeout_counter = 0;
+    if(++timeout_counter >= 900 && !terminated){
+        os_error("Test timed out after 15 minutes!");
+    }
 }
