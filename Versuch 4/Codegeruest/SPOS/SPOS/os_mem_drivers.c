@@ -41,28 +41,28 @@ void set_operation_mode(uint8_t mode) {
 	os_spi_send(SPI_WRMR);
 	os_spi_send(mode<<6);
 	deselect_memory();
+	select_memory();
+	uint8_t xxx = os_spi_send(5);
+	uint8_t x = os_spi_receive();
+	uint8_t y = os_spi_receive();
+	uint8_t z = os_spi_receive();
+	uint8_t a = os_spi_receive();
+	deselect_memory();
 }
 
 void transfer_address(MemAddr addr) {
 	os_spi_send(0);
 	os_spi_send((uint8_t) (addr >> 8));
-	os_spi_send((uint8_t) (addr & 0x0F));
-}
-
-uint8_t apply_endian(uint8_t value) {
-	if (gbi(SPCR, DORD)) { //swap if not byte set?
-		value = (value << 7) | ((value & 0x02) << 6) | ((value & 0x04) << 5) | ((value & 0x08) << 4)
-				| ((value & 0x10) >> 4) | ((value & 0x20) >> 5) | ((value & 0x40) >> 6) | (value >> 7);
-	}
-	return value;
+	os_spi_send((uint8_t) (addr & 0xFF));
 }
 
 void initSRAM_external(void) {
 	// Configure CS
 	sbi(DDRB, SPI_CS);
-	sbi(PORTB, SPI_CS);
-	os_spi_init();
+	// select_memory();
 	deselect_memory();
+	os_spi_init();
+	// deselect_memory();
 	set_operation_mode(0);
 }
 
@@ -74,7 +74,6 @@ MemValue readSRAM_external(MemAddr addr) {
 	transfer_address(addr);
 	uint8_t ret = os_spi_receive();
 	deselect_memory();
-	ret = apply_endian(ret);
 	os_leaveCriticalSection();
 	return ret;
 }
@@ -85,7 +84,7 @@ void writeSRAM_external(MemAddr addr, MemValue value) {
 	select_memory();
 	os_spi_send(SPI_WRITE);
 	transfer_address(addr);
-	os_spi_send(apply_endian(value));
+	os_spi_send(value);
 	deselect_memory();
 	os_leaveCriticalSection();
 }
