@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define EXT_SRAM_START 0
-#define EXT_MEMORY_SRAM 64000
+#define EXT_MEMORY_SRAM 65535
 
 #define SPI_CS 4 // Pin 4 Port B
 

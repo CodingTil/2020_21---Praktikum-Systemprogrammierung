@@ -36,5 +36,5 @@ uint8_t os_spi_send(uint8_t data) {
 }
 
 uint8_t os_spi_receive() {
-	return os_spi_receive(DUMMY_BYTE);
+	return os_spi_send(DUMMY_BYTE);
 }

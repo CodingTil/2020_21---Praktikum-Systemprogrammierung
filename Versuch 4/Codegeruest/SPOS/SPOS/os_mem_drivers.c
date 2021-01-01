@@ -5,11 +5,11 @@
 #include "os_scheduler.h"
 
 void select_memory() {
-	sbi(PORTB, SPI_CS);
+	cbi(PORTB, SPI_CS);
 }
 
 void deselect_memory() {
-	cbi(PORTB, SPI_CS);
+	sbi(PORTB, SPI_CS);
 }
 
 void set_operation_mode(uint8_t mode) {
