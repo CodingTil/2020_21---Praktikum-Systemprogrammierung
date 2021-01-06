@@ -22,7 +22,7 @@ void set_operation_mode(uint8_t mode) {
 void transfer_adress(MemAddr addr) {
 	os_spi_send(0);
 	os_spi_send((uint8_t) (addr >> 8));
-	os_spi_send((uint8_t) (addr & 0x0F));
+	os_spi_send((uint8_t) (addr & 0xFF));
 }
 
 void initSRAM_internal(void) {
@@ -45,10 +45,10 @@ MemDriver intSRAM__ = {
 };
 
 void initSRAM_external(void) {
-	os_spi_init();
 	// Configure CS
 	sbi(DDRB, SPI_CS);
 	deselect_memory();
+	os_spi_init();
 	// Set Operation Mode to Byte Operation
 	set_operation_mode(0);
 }
