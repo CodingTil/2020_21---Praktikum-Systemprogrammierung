@@ -1,4 +1,5 @@
 #include "os_memheap_drivers.h"
+#include "os_spi.h"
 
 char PROGMEM const intStr[] = "internal";
 char PROGMEM const extStr[] = "external";

@@ -5,6 +5,9 @@
 #define DUMMY_BYTE 0xFF
 
 void os_spi_init(void) {
+	sbi(DDRB, 5);
+	cbi(DDRB, 6);
+	sbi(DDRB, 7);
 	SPSR = (1<<SPI2X);
 	SPCR = (0<<SPIE) | (1<<MSTR) | (1<<SPE) | (0<<SPR1) | (0<<SPR0) | (0<<DORD) | (0<<CPOL) | (0<<CPHA);
 	/*
@@ -26,12 +29,21 @@ void os_spi_init(void) {
 }
 
 uint8_t os_spi_send(uint8_t data) {
-	os_enterCriticalSection();
+	// get global interrupt
+	uint8_t interrupts = gbi(SREG, 7);
+	// disable global interrupt
+	cbi(SREG, 7);
+	
 	SPDR = data;
 	uint8_t response;
 	while(!gbi(SPSR, SPIF));
 	response = SPDR;
-	os_leaveCriticalSection();
+	
+	// reset global interrupt
+	if (interrupts) {
+		sbi(SREG, 7);
+	}
+	
 	return response;
 }
 

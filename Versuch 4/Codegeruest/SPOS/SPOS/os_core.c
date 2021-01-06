@@ -137,8 +137,6 @@ void os_init(void) {
 	
 	initMemoryDevices();
 	
-	lcd_writeProgString(PSTR("Test2"));
-	
 	os_initHeaps();
 
     os_initScheduler();
