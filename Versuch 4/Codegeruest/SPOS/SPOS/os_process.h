@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "os_mem_drivers.h"
 
 //! The type for the ID of a running process.
 typedef uint8_t ProcessID;

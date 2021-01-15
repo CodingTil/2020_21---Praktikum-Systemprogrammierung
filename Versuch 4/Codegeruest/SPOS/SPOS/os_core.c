@@ -136,19 +136,10 @@ void os_init(void) {
 	}
 	
 	initMemoryDevices();
-
+	
 	os_initHeaps();
 
-    //os_initScheduler();
-	
-	extHeap->driver->write(12, 12);
-	uint8_t x = extHeap->driver->read(12);
-	
-	lcd_writeDec(x);
-	
-	delayMs(1000);
-	
-	os_error("FINISHED");
+    os_initScheduler();
 
     os_coarseSystemTime = 0;
 }

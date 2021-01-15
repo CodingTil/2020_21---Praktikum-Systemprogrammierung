@@ -102,9 +102,11 @@ MemAddr os_malloc(Heap* heap, uint16_t size) {
 			heap->first_used[cp] = address;
 		}
 		if (heap->last_used[cp] == 0 || address > heap->last_used[cp]) {
-			heap->last_used[cp] = address;
+			heap->last_used[cp] = address ;
 		}
+
 	}
+	
 	os_leaveCriticalSection();
 	return address;
 }
@@ -153,41 +155,39 @@ void os_freeProcessMemory(Heap* heap, ProcessID pid) {
 	os_leaveCriticalSection();
 }
 
-void mem_copy(Heap* heap, MemAddr old_addr, MemAddr new_addr, uint16_t size_old, uint16_t size_new) {
-	if (size_new < size_old) {
-		os_error("Tried to mem_copy to a smaller size.");
-	}
-	if (old_addr > new_addr) {
-		MemAddr start = new_addr;
+void moveChunk(Heap* heap, MemAddr oldChunk, size_t oldSize, MemAddr newChunk, size_t newSize) {
+	if(oldChunk > newChunk) { // Move backwards
+		MemAddr start = newChunk;
 		
-		setMapEntry(heap, new_addr, os_getCurrentProc());
-		heap->driver->write(new_addr, heap->driver->read(old_addr));
-		setMapEntry(heap, old_addr, 0);
-		old_addr++;
-		new_addr++;
+		setMapEntry(heap, newChunk, os_getCurrentProc());
+		heap->driver->write(newChunk, heap->driver->read(oldChunk));
+		setMapEntry(heap, oldChunk, 0);
+		oldChunk++;
+		newChunk++;
 		
-		while (old_addr < heap->use_start + heap->use_size && os_getMapEntry(heap, old_addr) == 0) {
-			setMapEntry(heap, new_addr, 0xFF);
-			heap->driver->write(new_addr, heap->driver->read(old_addr));
-			setMapEntry(heap, old_addr, 0);
-			old_addr++;
-			new_addr++;
+		while(oldChunk < heap->use_start + heap->use_size && os_getMapEntry(heap, oldChunk) == 0xF) {
+			setMapEntry(heap, newChunk, 0xF);
+			heap->driver->write(newChunk, heap->driver->read(oldChunk));
+			setMapEntry(heap, oldChunk, 0);
+			oldChunk++;
+			newChunk++;
 		}
-		
-		for (; new_addr < start + size_new; new_addr++) {
+	
+		for (; newChunk < start + newSize; newChunk++) {
 			// if we do not init values with 0 can't a process get all the heap and read it out?
-			setMapEntry(heap, new_addr, 0xFF);
+			setMapEntry(heap, newChunk, 0xF);
 		}
-	} else {
-		MemAddr end_old = old_addr + size_old - 1;
-		MemAddr end_new = new_addr + size_new;
-		for (uint16_t i = 0; i < new_addr - old_addr; i++) {
-			setMapEntry(heap, end_new, 0xFF);
+		
+	}else if(oldChunk < newChunk) { // Move forwards
+		MemAddr end_old = oldChunk + oldSize - 1;
+		MemAddr end_new = newChunk + newSize;
+		for (uint16_t i = 0; i < newChunk - oldChunk; i++) {
+			setMapEntry(heap, end_new, 0xF);
 			end_new--;
 		}
 		
 		while (os_getMapEntry(heap, end_old) == 0) {
-			setMapEntry(heap, end_new, 0xFF);
+			setMapEntry(heap, end_new, 0xF);
 			heap->driver->write(end_new, heap->driver->read(end_old));
 			setMapEntry(heap, end_old, 0);
 			end_old++;
@@ -207,17 +207,24 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 		return 0;
 	}
 	
-	uint16_t current_size = os_getChunkSize(heap, addr);
-
-	// First try to append the space:
-	MemAddr after = addr + current_size;
+	size_t oldSize = os_getChunkSize(heap, addr);
+	
+	if(size <= oldSize) {
+		for(MemAddr i = addr + size; i < addr + oldSize; i++) {
+			setMapEntry(heap, i, 0);
+		}
+		return addr;
+	}
+	
+	// Find after
+	MemAddr after = addr + oldSize;
 	for (; after < heap->use_start + heap->use_size; after++) {
 		if (os_getMapEntry(heap, after) != 0) {
 			break;
 		} else {
-			if (after >= addr + size) {
-				for (MemAddr i = addr + current_size; i < after; i++) {
-					setMapEntry(heap, addr, os_getCurrentProc());
+			if (after >= addr + size - 1) {
+				for (MemAddr i = addr + oldSize; i <= after; i++) {
+					setMapEntry(heap, i, 0xF);
 				}
 				os_leaveCriticalSection();
 				return addr;
@@ -225,22 +232,27 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 		}
 	}
 	
-	// Then try to use space before and after.
-	MemAddr before = addr;
-	while (before > heap->use_start && os_getMapEntry(heap, before) == 0) {
+	// Find before
+	MemAddr before = addr - 1;
+	while (before >= heap->use_start && os_getMapEntry(heap, before) == 0) {
 		before--;
 	}
-	if (after - before > size) {
-		mem_copy(heap, addr, before, current_size, size);
+	before++;
+	if (after - before >= size) {
+		moveChunk(heap, addr, oldSize, before, size);
 		os_leaveCriticalSection();
 		return before;
 	}
+
 	
-	// Search everywhere
-	MemAddr new_addr = os_malloc(heap, size);
-	if (new_addr != 0) {
-		mem_copy(heap, addr, new_addr, current_size, size);
+	// Finding any free chunk
+	MemAddr newChunk = os_malloc(heap, size);
+	if(newChunk != 0) {
+		moveChunk(heap, addr, oldSize, newChunk, size);
+		os_leaveCriticalSection();
+		return newChunk;
 	}
+	
 	os_leaveCriticalSection();
-	return new_addr;
+	return 0;
 }

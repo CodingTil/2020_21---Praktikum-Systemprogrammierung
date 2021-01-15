@@ -19,13 +19,13 @@ Heap intHeap__ = {
 
 Heap extHeap__ = {
 	.driver = extSRAM,
-	.map_start = SPI_SRAM_START,
-	.map_size = SPI_SRAM_SIZE / 3,
-	.use_start = SPI_SRAM_START + SPI_SRAM_SIZE / 3,
-	.use_size = (SPI_SRAM_SIZE / 3) * 2,
+	.map_start = EXT_SRAM_START,
+	.map_size = EXT_MEMORY_SRAM / 3,
+	.use_start = EXT_SRAM_START + EXT_MEMORY_SRAM / 3,
+	.use_size = (EXT_MEMORY_SRAM / 3) * 2,
 	.alloc_strategy = OS_MEM_FIRST,
 	.name = extStr,
-	.last_addr = SPI_SRAM_START + SPI_SRAM_SIZE,
+	.last_addr = EXT_SRAM_START + EXT_MEMORY_SRAM / 3,
 	.first_used = {0},
 	.last_used = {0}
 };
