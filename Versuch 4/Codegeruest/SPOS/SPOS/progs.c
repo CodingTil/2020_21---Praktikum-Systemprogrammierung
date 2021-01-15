@@ -1,5 +1,5 @@
 //-------------------------------------------------
-//          TestSuite: Memtest
+//          TestSuite: Realloc
 //-------------------------------------------------
 
 #include "lcd.h"
@@ -7,759 +7,532 @@
 #include "os_core.h"
 #include "os_scheduler.h"
 #include "os_memory.h"
-#include "os_memheap_drivers.h"
 #include "os_input.h"
+#include "defines.h"
 
 #include <avr/interrupt.h>
-#include <string.h>
+#include <stdlib.h>
 
-/************************************************************************/
-/* Defines                                                              */
-/************************************************************************/
+#define DELAY 400
 
-//! Set this to 1 in order to execute test phase 1, 0 to skip this phase
-#define TEST_PHASE_1    (1)
-//! Set this to 1 in order to execute test phase 2, 0 to skip this phase
-#define TEST_PHASE_2    (1)
-//! Set this to 1 in order to execute test phase 3, 0 to skip this phase
-#define TEST_PHASE_3    (0)
-//! Set this to 1 in order to execute test phase 4, 0 to skip this phase
-#define TEST_PHASE_4    (0)
-//! Set this to 1 in order to execute test phase 5, 0 to skip this phase
-#define TEST_PHASE_5    (0)
+// Calculates the minimum of a and b
+#define MIN(a,b) ( (a)<(b) ? (a) : (b) )
 
-//! Small 0.1s delay
-#define DELAY (100)
-//! Delay for test printed to the lcd to be read by user
-#define LCD_DELAY (1000)
+// Error printout
+#define error_onHeap(HEAP, MSG) \
+    if(HEAP == intHeap) \
+        os_error(MSG " on intHeap"); \
+    else \
+        os_error(MSG " on extHeap");\
 
-//! Number of bytes the processes for the concurrency test write
-#define CONCURRENCY_BYTES  (1000)
-//! Number of processes that try to write in the last phase
-#define CONCURRENCY_PROCS  (4)
-//! Number of address bits on the external memory board minus 1
-#define ADDRESS_BITS       (16)
-//! Highest address bit as size reference value 
-#define SIZE               (1 << 15)
+// Flag indicating if the internal realloc check is done
+bool volatile checkI = false;
+// Flag indicating if the external realloc check is done
+bool volatile checkE = false;
+// Flag indicating if the external realloc check discovered failures
+bool failI = false;
+// Flag indicating if the internal realloc check discovered failures
+bool failE = false;
 
-//! The heap-driver we expect to find at position 1 of the heap-list
-#define DRIVER extHeap
-//! Number of bytes we allocate by hand. Must be even and >2.
-#define MALLOC_SIZE        (10)
-
-//! Halts execution of program
-#define HALT               do{}while(1)
-
-/************************************************************************/
-/* Typedef                                                              */
-/************************************************************************/
-
-//! Factor for math-magic
-typedef uint8_t Factor;
+typedef struct {
+    MemAddr head; // First address of that chunk
+    size_t size;  // Size of chunk
+    bool dummy;   // 1 if this chunk is a dummy
+} Chunk;
 
 /*!
- * Definition for MEMTEST-functions.
- * \param f       Magic factor that is supposed to assure that most of the
- *                use-cases are covered.
- * \param round   The current round the test is executed in. For more
- *                information about rounds see performTest.
- * \param cell    Cell the test is to be executed on
- * \param errors  Place to store the errors that occurred.
+ * Returns the mapEntry of the use-address ptr
+ * \param  *heap Heap on which the map is to be checked
+ * \param   ptr  Use-address whose map-entry is requested
+ * \return       Entry for that position (between 0x0 and 0xF)
  */
-#define MEMTEST(NAME) void NAME(Factor f, uint8_t round, uint16_t cell, uint32_t* errors)
+uint8_t progs_getMapEntry(Heap* heap, MemAddr ptr) {
+    MemAddr relativeAddress = ptr - os_getUseStart(heap);
+    // If nibble is 1, the high nibble is responsible
+    uint8_t nibble = relativeAddress % 2 == 0 ? 1 : 0;
 
-/************************************************************************/
-/* Forward declarations                                                 */
-/************************************************************************/
+    MemAddr mapEntryAddress = relativeAddress / 2;
 
-//! Prints occurring memtest-errors to the LCD.
-void tt_renderError(uint32_t errors, bool errorsAsHex, bool show0);
-//! Prints occurring memtest-errors to the LCD.
-void tt_renderError(uint32_t errors, bool errorsAsHex, bool show0);
-//! Performs one of the MEMTEST-functions in order to check if external memory
-char tt_performTest(uint8_t testId, uint8_t iterations, uint16_t max, bool errorsAsHex, char const* testName, MEMTEST((*test)));
-//! Checks if all bytes in a certain memory-area are the same.
-uint8_t tt_isAreaUniform(MemAddr start, uint16_t size, MemValue byte);
+    MemValue fullEntry = heap->driver->read(os_getMapStart(heap) + mapEntryAddress);
 
-//! Prints an error message on the LCD. Then halts.
-void tt_throwError(char const* str);
-//! Prints phase information to the LCD.
-void tt_showPhase(uint8_t i, char const* name);
-//! Prints OK for the phase message.
-void tt_phaseSuccess(void);
-//! Prints FAIL for the phase message.
-void tt_phaseFail(void);
-//! Prints a byte hexadecimal with leading zero
-void tt_printHex(uint8_t b);
-
-// Memtests
-
-//! Test basic read/write functionality.
-MEMTEST(tt_doubleAccess);
-//! Tests if address is applied correctly to external memory.
-MEMTEST(tt_addressBits);
-//! Test if memory can remember a pattern
-MEMTEST(tt_integrity);
-//! Tests if everything of the above works.
-MEMTEST(tt_inversions);
-
-/************************************************************************/
-/* Global variables                                                     */
-/************************************************************************/
-
-
-//! Number of started processes in the concurrency phase
-volatile uint8_t startedProcs = 0;
-//! Number of finished processes in the concurrency phase
-volatile uint8_t finishedProcs = 0;
-//! Pattern to write in the concurrency phase
-uint8_t pattern[] = {0b11001100, 0b10101010, 0b01010101, 0b11110000, 0b11000011};
-//! Remembers, if there was a pattern mismatch or not
-volatile uint8_t patternMismatch = 0;
-
-/************************************************************************/
-/* Programs                                                             */
-/************************************************************************/
-
-/*!
- * The test consists of several sub-tests checking different aspects of the driver.
- */
-PROGRAM(1, AUTOSTART) {
-#if TEST_PHASE_1==1 || TEST_PHASE_2==1 || TEST_PHASE_3==1
-    // If there are any problems, we set a certain bit in the bitmask
-    // "errorCode", indicating what exactly went wrong.
-    uint8_t errorCode = 0;
-#endif
-
-    uint8_t i;
-    // 1. Phase: Sanity checks
-#if TEST_PHASE_1 == 1
-    tt_showPhase(1, PSTR("Sanity check"));
-    delayMs(LCD_DELAY);
-
-    // Check if the driver returned by lookupHeap is the correct one
-    // If not, set bit 0
-    errorCode |= (os_lookupHeap(0) != intHeap) << 0;
-    errorCode |= (os_lookupHeap(1) != extHeap) << 0;
-    // Check if the mapsize of the heap is reasonable
-    // If not, set bit 1
-    errorCode |= (os_getMapSize(extHeap) < os_getMapSize(intHeap)) << 1;
-    // Check if the length of the heaplist is correct
-    // If not, set bit 2
-    errorCode |= (os_getHeapListLength() != 2) << 2;
-    // Check if use- and map-area have a size relationship of 2:1
-    // If not, set bit 3
-    errorCode |= (os_getMapSize(intHeap) != os_getUseSize(intHeap) - os_getMapSize(intHeap)) << 3;
-    errorCode |= (os_getMapSize(extHeap) != os_getUseSize(extHeap) - os_getMapSize(extHeap)) << 3;
-
-    // Check if there is an error
-    if (errorCode) {
-        tt_phaseFail();
-        delayMs(LCD_DELAY);
-        lcd_clear();
-        lcd_writeProgString(PSTR("DRV|MAP|LST|1:2|"));
-        uint8_t errorIndex;
-        for (errorIndex = 0; errorIndex < 4; errorIndex++) {
-            if (errorCode & (1 << errorIndex)) {
-                lcd_writeProgString(PSTR("ERR|"));
-            } else {
-                lcd_writeProgString(PSTR("OK |"));
-            }
-        }
-        HALT;
-    }
-
-    lcd_clear();
-    lcd_writeProgString(PSTR("ExtSRAM Size: "));
-    lcd_line2();
-    lcd_writeDec(extSRAM->size);
-    lcd_writeChar('/');
-    lcd_writeHex(extSRAM->size);
-    delayMs(1000);
-
-    tt_phaseSuccess();
-    delayMs(LCD_DELAY);
-    lcd_clear();
-#endif
-
-    // 2. Phase: Memory-Driver
-#if TEST_PHASE_2 == 1
-    tt_showPhase(2, PSTR("Mem-Driver"));
-    delayMs(LCD_DELAY);
-    uint8_t pass = 0;
-    uint8_t testId = 0;
-
-    // As a reminder, here the signature of performTest:
-    // performTest(uint8_t testId, uint8_t iterations, uint16_t max, bool errorsAsHex, char const* testName, MEMTEST((*test)))
-
-
-    // As you can see, this test performs exactly one round, but in this round
-    // it tests all possible addresses for tt_doubleAccess
-    pass += !tt_performTest(++testId, 1, SIZE, false, PSTR("double access"), tt_doubleAccess);
-
-    /*
-     * AddressBits already performs two rounds. In the first round the address
-     * lines are tested from the LSB to the MSB and in the second round this
-     * order is inverted.
-     */
-    pass += !tt_performTest(++testId, 2, ADDRESS_BITS, false, PSTR("address bits"), tt_addressBits);
-
-    // Integrity is tested for all addresses. In the first round values are
-    // written to the cell. In the second round, values are read from the cells.
-    pass += !tt_performTest(++testId, 2, SIZE, false, PSTR("memory integrity"), tt_integrity);
-
-    // Inversions is the longest test - it has 6 rounds. This means there are
-    // 6 write/read cycles.
-    pass += !tt_performTest(++testId, 6, SIZE, false, PSTR("inversions"), tt_inversions);
-
-    // Check if one test failed
-    if (pass == testId) {
-        tt_showPhase(2, PSTR("Mem-Driver"));
-        tt_phaseSuccess();
-        delayMs(LCD_DELAY);
-        lcd_clear();
+    if (nibble == 1) {
+        return fullEntry >> 4;
     } else {
-        tt_showPhase(2, PSTR("Mem-Driver"));
-        tt_phaseFail();
-        delayMs(LCD_DELAY);
-        lcd_writeProgString(PSTR("Failed tests (Phase 2): "));
-        lcd_writeDec(testId - pass);
-        HALT;
-    }
-#endif
-
-    // 3. Phase: Malloc
-#if TEST_PHASE_3 == 1
-    tt_showPhase(3, PSTR("malloc"));
-    delayMs(LCD_DELAY);
-
-    // We use error-codes again
-    errorCode = 0;
-
-    // We allocate the whole use-area with os_malloc
-    MemAddr hugeChunk = os_malloc(DRIVER, os_getUseSize(DRIVER));
-    if (hugeChunk == 0) {
-        // We could not allocate the whole use-area
-        errorCode |= 1 << 0;
-    } else {
-        // Allocation was successful, but what does the map look like?
-        uint8_t mapEntry = (os_getCurrentProc() << 4) | 0x0F;
-        if (DRIVER->driver->read(os_getMapStart(DRIVER)) != mapEntry) {
-            // The first map-entry is wrong
-            errorCode |= 1 << 1;
-        }
-        if (!tt_isAreaUniform(os_getMapStart(DRIVER) + 1, os_getMapSize(DRIVER) - 1, 0xFF)) {
-            // The rest of the map is not filled with 0xFF
-            errorCode |= 1 << 2;
-        }
-
-        // Now we free and check if the map is correct afterwards
-        os_free(DRIVER, hugeChunk);
-        if (!tt_isAreaUniform(os_getMapStart(DRIVER), os_getMapSize(DRIVER), 0x00)) {
-            // There are some bytes in the map that are not 0
-            errorCode |= 1 << 3;
-        }
-    }
-
-    // Check if there is an error
-    if (errorCode) {
-        tt_phaseFail();
-        delayMs(LCD_DELAY);
-        lcd_clear();
-        lcd_writeProgString(PSTR("MAL|OWN|FIL|FRE|"));
-        lcd_line2();
-        uint8_t errorIndex;
-        for (errorIndex = 0; errorIndex < 4; errorIndex++) {
-            if (errorCode & (1 << errorIndex)) {
-                lcd_writeProgString(PSTR("ERR|"));
-            } else {
-                lcd_writeProgString(PSTR("OK |"));
-            }
-        }
-        HALT;
-    }
-
-    tt_phaseSuccess();
-    delayMs(LCD_DELAY);
-    lcd_clear();
-#endif
-
-    // 4. Phase: Free
-#if TEST_PHASE_4 == 1
-    tt_showPhase(4, PSTR("free"));
-    delayMs(LCD_DELAY);
-
-    /*
-     * Calculating the map-address for our hand-allocated block of memory.
-     * The block will be at the very end of the use-area because we write
-     * into the very end of the map-area.
-     */
-    uint16_t addr = os_getUseStart(DRIVER);
-    addr -= MALLOC_SIZE / 2;
-
-    // We build the first two entries of the map-area
-    ProcessID process = os_getCurrentProc();
-    process = (process << 4) | 0xF;
-
-    /*
-     * Now we allocate memory by hand. This is done in two steps. First we
-     * write the process-byte which contains the owner and an 0xF, then we
-     * write the remaining 0xF until we allocated the memory we need.
-     */
-    DRIVER->driver->write(addr, process);
-    for (i = 1; i < MALLOC_SIZE / 2; i++) {
-        DRIVER->driver->write(addr + i, 0xFF);
-    }
-    // Fill the first half of the block with 0xFF
-    for (i = 0; i < MALLOC_SIZE / 2; i++) {
-        DRIVER->driver->write(addr + (MALLOC_SIZE / 2) + i, 0xFF);
-    }
-
-    // Determine use address by calculating offset of map-entry to map-start
-    MemAddr  useaddr = ((addr - os_getMapStart(DRIVER)) * 2) + os_getUseStart(DRIVER);
-
-    /*
-     * Free map
-     * Expected state: free map + #SIZE/2 byte (0xFF) at the beginning of
-     * use-area. If free is implemented wrongly, it will also zero out the
-     * 0xFF at the beginning of the use-area
-     */
-    os_free(DRIVER, useaddr);
-
-    // Just like in phase 1 we use a bitmap to store errors
-    errorCode = 0;
-
-    // Check map data
-    for (i = 0; i < MALLOC_SIZE / 2; i++) {
-        if (DRIVER->driver->read(addr + i)) {
-            // The map was not freed
-            errorCode |= 1 << 0;
-        }
-    }
-
-    // Check map data
-    for (i = MALLOC_SIZE / 2; i < MALLOC_SIZE; i++) {
-        if (!(DRIVER->driver->read(addr + i) == 0xFF)) {
-            // The use area was touched
-            errorCode |= 1 << 1;
-        }
-    }
-
-    // Output of test-results, if there was an error
-    if (errorCode) {
-        tt_phaseFail();
-        delayMs(LCD_DELAY);
-        lcd_clear();
-        lcd_writeProgString(PSTR("MAP|USE|"));
-        lcd_line2();
-        uint8_t errorIndex;
-        for (errorIndex = 0; errorIndex < 2; errorIndex++) {
-            if (errorCode & (1 << errorIndex)) {
-                lcd_writeProgString(PSTR("ERR|"));
-            } else {
-                lcd_writeProgString(PSTR("OK |"));
-            }
-        }
-        HALT;
-    }
-
-    tt_phaseSuccess();
-    delayMs(LCD_DELAY);
-    lcd_clear();
-#endif
-
-    // 5. Phase: Critical Sections
-#if TEST_PHASE_5 == 1
-    // Test on critical sections in read/write driver functions.
-    // Doing lots of concurrent read/write operations on ext. memory.
-    tt_showPhase(5, PSTR("Concurrency..."));
-    delayMs(LCD_DELAY);
-    os_setSchedulingStrategy(OS_SS_RANDOM);
-
-    /*
-     * We start 4 processes that try to access the external memory a lot.
-     * If critical sections were used wrongly, they will interrupt each
-     * others writing or reading processes and destroy that pattern that
-     * was written
-     */
-    for (i = 0; i < CONCURRENCY_PROCS; i++) {
-        os_exec(3, DEFAULT_PRIORITY);
-    }
-
-    // Wait for them to finish
-    while (finishedProcs != CONCURRENCY_PROCS) {
-        delayMs(10 * DELAY);
-    }
-
-    // Check if successful
-    lcd_clear();
-    tt_showPhase(5, PSTR("Concurrency"));
-    if (!patternMismatch) {
-        tt_phaseSuccess();
-    } else {
-        tt_phaseFail();
-    }
-    delayMs(LCD_DELAY);
-#endif
-
-    // Final check
-    if (!patternMismatch) {
-        // SUCCESS
-        lcd_clear();
-        lcd_writeProgString(PSTR("ALL TESTS PASSED"));
-        lcd_line2();
-        lcd_writeProgString(PSTR(" PLEASE CONFIRM!"));
-        os_waitForInput();
-        os_waitForNoInput();
-        lcd_clear();
-        lcd_writeProgString(PSTR("WAITING FOR"));
-        lcd_line2();
-        lcd_writeProgString(PSTR("TERMINATION"));
-        delayMs(1000);
-    } else {
-        lcd_clear();
-        lcd_writeProgString(PSTR("TEST FAILED"));
-        HALT;
+        return fullEntry & 0x0F;
     }
 }
 
 /*!
- * This program is used in order check if the student implemented critical
- * sections correctly or not. It does so by choosing a unique memory area for
- * a process of this program. This area is then filled several times with a
- * pattern, which is then read. If the read pattern does not match the written
- * pattern, we must have been interrupted during memory-access by another
- * process.
+ * Returns the chunk-size of a chunk that starts at ptr. Only works for chunks
+ * that were allocated as private memory by one of the processes.
+ * \param  *heap Heap where the chunk is
+ * \param   ptr  Address of the very first byte of that chunk
+ * \return       Length of chunk in bytes
  */
-PROGRAM(3, DONTSTART) {
-    /*
-     * It is important to get a unique number between 0 and 3. That way we can
-     * be sure that the memory block we use is not used by anyone else. If it
-     * were this test would not be as efficient.
-     */
-    os_enterCriticalSection();
-    uint8_t me = startedProcs;
-    startedProcs++;
-    os_leaveCriticalSection();
-
-    // The first address of the memory area that we chose
-    MemAddr addr = CONCURRENCY_BYTES * me;
-
-    // Wait for all processes to be started.
-    while (startedProcs != CONCURRENCY_PROCS);
-
-    // Write and read and hope to not be interrupted.
-    uint16_t offset = 0;
-    uint8_t  iteration = 0;
-
-    // For each address, we write the pattern 15 times. This is done in order to
-    // achieve a huge amount of memory accesses in the beginning of this task.
-    for (offset = 0; offset < CONCURRENCY_BYTES; offset++) {
-        for (iteration = 0; iteration < 15; iteration++) {
-            extSRAM->write(addr + offset, pattern[me] ^ (1 << (offset % 8)));
-        }
+uint16_t progs_getChunkSize(Heap* heap, MemAddr ptr) {
+    uint16_t size;
+    MemValue owner;
+    owner = progs_getMapEntry(heap, ptr);
+    if (owner == 0 || owner >= MAX_NUMBER_OF_PROCESSES) {
+        return 0;
     }
-
-    // For each address we read the pattern again 15 times
-    MemValue val;
-    for (offset = 0; offset < CONCURRENCY_BYTES; offset++) {
-        for (iteration = 0; iteration < 15; iteration++) {
-            val = extSRAM->read(addr + offset);
-            if (val != (pattern[me] ^ (1 << (offset % 8)))) {
-                // It happened. We were interrupted by another process when we were
-                // reading or writing to the external memory
-                os_enterCriticalSection();
-                if (!patternMismatch) {
-                    // we only show this message once
-                    lcd_clear();
-                    lcd_writeProgString(PSTR("Pattern mismatch"));
-                    delayMs(2 * LCD_DELAY);
-                    patternMismatch = 1;
-                }
-                lcd_clear();
-                lcd_writeProgString(PSTR("Proc "));
-                lcd_writeDec(me + 1);
-                lcd_writeProgString(PSTR(" @ "));
-                tt_printHex((addr + offset) >> 8);
-                tt_printHex((addr + offset) & 0xFF);
-                lcd_writeChar(':');
-                lcd_line2();
-                tt_printHex(val);
-                lcd_writeProgString(PSTR("!="));
-                tt_printHex(pattern[me] ^ (1 << (offset % 8)));
-                os_waitForInput();
-                /*
-                 * We want to give the user the chance to see where he went wrong, so
-                 * we show all errors. That means, we do not halt here, instead we let
-                 * them scroll through them
-                 */
-                os_waitForNoInput();
-                os_leaveCriticalSection();
-                break; // We do not need to see the same error 15 times, do we?
-            }
-        }
-    }
-
-    finishedProcs++;
-
-    // We already have a heap-cleanup, so if a process dies, the map-area will
-    // be altered. That would corrupt the memory
-    while (finishedProcs != CONCURRENCY_PROCS) {
+    for (size = 1; progs_getMapEntry(heap, ptr + size) == 0xF; size++) {
         // Nop
     }
-}
-
-
-/************************************************************************/
-/* Function implementations                                             */
-/************************************************************************/
-
-
-// Basic test functionality
-
-/*!
- * Prints an error message on the LCD. Then halts.
- * \param  *str Message to print
- */
-void tt_throwError(char const* str) {
-    os_enterCriticalSection(); // No return
-    lcd_clear();
-    lcd_line1();
-    lcd_writeProgString(PSTR("Error:"));
-    lcd_line2();
-    lcd_writeProgString(str);
-    HALT;
+    return size;
 }
 
 /*!
- * Prints phase information to the LCD.
- * \param  i    Index of phase
- * \param *name Name of phase
+ * Writes a pattern to a certain chunk
+ * \param  *heap   Heap on which this action is to be performed
+ * \param  *c      Chunk to which the pattern is to be written
+ * \param   pat    Pattern that is written. This byte gets repeatedly written
+ *                 to the chunk until the whole chunk is filled with it.
  */
-void tt_showPhase(uint8_t i, char const* name) {
-    lcd_clear();
-    lcd_writeProgString(PSTR("Phase "));
-    lcd_writeDec(i);
-    lcd_writeChar(':');
-    lcd_line2();
-    lcd_writeProgString(name);
-}
-
-/*!
- * Prints OK for the phase message.
- */
-void tt_phaseSuccess(void) {
-    lcd_goto(2, 15);
-    lcd_writeProgString(PSTR("OK"));
-}
-
-/*!
- * Prints FAIL for the phase message.
- */
-void tt_phaseFail(void) {
-    lcd_goto(2, 13);
-    lcd_writeProgString(PSTR("FAIL"));
-}
-
-/*!
- * Prints a byte hexadecimal with leading zero.
- * \param  b Byte to print
- */
-void tt_printHex(uint8_t b) {
-    uint8_t high = b >> 4;
-    uint8_t low  = b & 0xF;
-    if (high == 0) {
-        lcd_writeChar('0');
-    } else {
-        lcd_writeHex(high);
-    }
-    if (low == 0) {
-        lcd_writeChar('0');
-    } else {
-        lcd_writeHex(low);
+void writePat(Heap* heap, Chunk* c, MemValue pat) {
+    size_t i;
+    for (i = 0; i < c->size; i++) {
+        heap->driver->write(c->head + i, pat);
     }
 }
 
-
-// Specialized test functionality
-
 /*!
- * Checks if all bytes in a certain memory-area are the same.
- * \param  start First address of area
- * \param  size  Length of area in bytes
- * \param  byte  Byte that is supposed to appear in this area
+ * Checks if a certain chunk contains a given pattern.
+ * \param  *heap   On which heap the check is performed.
+ * \param   c      Chunk that should contain the pattern
+ * \param   pat    Pattern that should be found in that chunk
+ * \return         1 if the pattern exists at that position, 0 otherwise
  */
-uint8_t tt_isAreaUniform(MemAddr start, uint16_t size, MemValue byte) {
-    uint16_t i;
-    for (i = 0; i < size; i++) {
-        if (DRIVER->driver->read(start + i) != byte) {
-            return 0;
+bool checkChunkPat(Heap* heap, Chunk* c, MemValue pat) {
+    size_t i;
+    for (i = 0; i < c->size; i++) {
+        if (heap->driver->read(c->head + i) != pat) {
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 /*!
- * Prints occurring memtest-errors to the LCD.
- * \param  errors      Number of errors that occurred
- * \param  errorsAsHex Set this to true if you want error-numbers to be
- *                     printed in hexadecimal
- * \param  show0       This parameter decides if a zero is to be printed if
- *                     there are no errors.
+ * Checks if a certain area in the memory contains a given pattern.
+ * \param  *heap   On which heap the check is performed.
+ * \param   start  First address where the pattern starts
+ * \param   length Length of the memory area that is to be checked
+ * \param   pat    Pattern that should be found in that area
+ * \return         1 if the pattern exists at that position, 0 otherwise
  */
-void tt_renderError(uint32_t errors, bool errorsAsHex, bool show0) {
-    if (show0 || errors) {
-        if (errorsAsHex) {
-            lcd_writeHexWord(errors);
-        } else {
-            // The following distinction is made because the lcd-header can only
-            // print decimals up to 0xFFFF
-            if (errors >= (1ul << 16)) {
-                lcd_writeChar('>');
-                lcd_writeDec(-1);
+bool checkMemPat(Heap* heap, MemAddr start, MemAddr length, MemValue pat) {
+    size_t i;
+    for (i = 0; i < length; i++) {
+        if (heap->driver->read(start + i) != pat) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/*!
+ * Allocates all chunks in the given chunk array, writes a pattern to each
+ * chunk and deallocates all dummies.
+ * \param  *heap   Heap on which this action is to be performed
+ * \param  *chunks Array of chunks that are ot be allocated/freed
+ * \param   count  Size of chunks-array
+ */
+void massAlloc(Heap* heap, Chunk* chunks, size_t count) {
+    size_t i;
+
+    // Allocation phase
+    for (i = 0; i < count; i++) {
+        chunks[i].head = os_malloc(heap, chunks[i].size);
+        if (!chunks[i].head) {
+            error_onHeap(heap, "malloc failure");
+        }
+        writePat(heap, chunks + i, i);
+    }
+
+    // Free phase
+    for (i = 0; i < count; i++) {
+        if (chunks[i].dummy) {
+            os_free(heap, chunks[i].head);
+        }
+    }
+}
+
+/*!
+ * Frees all non dummy chunks of the given chunk array.
+ * \param  *heap   Heap on which this action is to be performed
+ * \param  *chunks Array of chunks that are ot be allocated/freed
+ * \param   count  Size of chunks-array
+ */
+void massFree(Heap* heap, Chunk* chunks, size_t count) {
+    size_t i;
+    for (i = 0; i < count; i++) {
+        if (!chunks[i].dummy) {
+            os_free(heap, chunks[i].head);
+        }
+    }
+}
+
+/*!
+ * Main test routine
+ * In this routine, several chunks are allocated and a pattern is written to
+ * them. Then those chunks labeled as dummies are freed again. After that
+ * the middle chunk (i.e. with 7 chunks the 3rd chunk) is reallocated to a
+ * new size. That size is the sum of the sizes of all chunks labeled as
+ * realloc candidates in the reallocBits bitmap.
+ * After that reallocation it is checked if the map is correctly representing
+ * that reallocation and if the other chunks were not damaged in the process.
+ *
+ * \param  *heap        Heap to test.
+ * \param   dummies     Dummies are those chunks that get freed after all
+ *                      chunks were allocated. This bitmap defines, which
+ *                      chunk is a dummy. The LSB defines whether the last
+ *                      allocated chunk is freed and the MSB defines whether
+ *                      the first allocated chunk is freed, etc.
+ * \param   reallocBits This bitmap is set up like dummies. Except in this map
+ *                      it is defined whose chunks are going to be merged by
+ *                      the reallocation.
+ * \param   random      If this byte is 0xFF, the new size of the reallocation-
+ *                      chunk is calculated deterministically. If it is not
+ *                      0xFF, the reallocation-chunk is additionally randomly
+ *                      increased for their reallocation. That random value is
+ *                      at least 1 and smaller than the size of the chunk with
+ *                      index "random".
+ * \param   destination This bitmap defines in which chunk the resulting
+ *                      reallocated chunk must be located.
+ */
+bool makeTest(Heap* heap, uint8_t dummies, uint8_t reallocBits,
+              uint8_t random, uint8_t destination) {
+
+
+    os_setAllocationStrategy(heap, OS_MEM_FIRST);
+
+    size_t i;
+    size_t useSize = os_getUseSize(heap);
+    if(useSize > 4096) useSize = 4096;
+
+    // This macro returns 1 for all chunks that are labeled as dummy chunks
+#define IS_DUMMY(i)               ((dummies >> (6-i)) & 1)
+    // This macro returns 1 for all chunks that are labeled as reallocation candidates
+#define IS_REALLOC_CANDIDATE(i)   ((reallocBits >> (6-i)) & 1)
+    // This macro returns 1 for all chunks that are still untouched after their initial allocation
+#define IS_PERSISTENT(i)          (!(IS_DUMMY(i) || IS_REALLOC_CANDIDATE(i)))
+
+
+    // 1. Preparation of chunks
+
+    /*
+     * In this chunk array, 7 chunks will be prepared. Chunks 0,2,3,4 have semi-
+     * random sizes, the other sizes are fixed. Chunk 6 has a size as big as the
+     * whole use-size. This is only temporary, as its size will be corrected
+     * below
+     */
+    Chunk chunks[] = {
+        {.size = rand() % (useSize / 6) + useSize / 6/* useSize/6 <= size < 2*useSize/6 */, .dummy = IS_DUMMY(0) },
+        {.size = 1, .dummy = IS_DUMMY(1) },
+        {.size = rand() % (useSize / 6) + 1   /* 1 <= size <= useSize/6 */, .dummy = IS_DUMMY(2) },
+        {.size = rand() % (useSize / 6) + 1   /* 1 <= size <= useSize/6 */, .dummy = IS_DUMMY(3) },
+        {.size = rand() % (useSize / 6) + 1   /* 1 <= size <= useSize/6 */, .dummy = IS_DUMMY(4) },
+        {.size = 1, .dummy = IS_DUMMY(5) },
+        {.size = useSize, .dummy = IS_DUMMY(6) }
+    };
+
+    // Now resize last chunk so that the sum of the chunk sizes equals the total use size.
+    size_t const cSize = sizeof(chunks) / sizeof(*chunks); // Size of chunks[]
+    size_t const reallocIndex = cSize / 2; // Index of block we want to reallocate
+
+    for (i = 0; i < cSize - 1; i++) {
+        chunks[cSize - 1].size -= chunks[i].size;
+    }
+
+
+    // 2. Allocation of chunks
+
+    // Allocate all prepared chunks. Then a pattern is written to the chunks and
+    // those chunks flagged as dummies are freed
+    massAlloc(heap, chunks, cSize);
+
+
+    // 3. Reallocation of middle chunk
+
+    size_t newSize = 0;
+    // The new size is calculated as the sizes of all those chunks that are
+    // labeled as realloc candidates
+    for (i = 0; i < cSize; i++) {
+        // Add chunk size to new size if reallocate bit is 1
+        if (IS_REALLOC_CANDIDATE(i)) {
+            newSize += chunks[i].size;
+        }
+    }
+    // Add some random size to new size
+    if (random != 0xFF) {
+        size_t add = rand() % (chunks[random].size);
+        if (add < 1) {
+            add = 1;
+        }
+        // 1 <= add < chunks[random].size
+        newSize += add;
+    }
+
+    // Reallocate the chunk with index reallocIndex to newSize
+    Chunk const old = chunks[reallocIndex];
+    chunks[reallocIndex].size = newSize;
+    chunks[reallocIndex].head = os_realloc(heap, chunks[reallocIndex].head, newSize);
+
+
+    // 4. Check if os_realloc returns a valid address
+
+    // Check if os_realloc found a valid position for the new chunk
+    if (chunks[reallocIndex].head == 0) {
+        error_onHeap(heap, "realloc allocation fail");
+    }
+
+
+    // 5. Check if memcpy was successful
+
+    // Confirm the written pattern is present in the reallocated block (memcpy)
+    if (!checkMemPat(heap, chunks[reallocIndex].head, MIN(old.size, newSize), reallocIndex)) {
+        error_onHeap(heap, "realloc memcpy fail");
+    }
+
+
+    // 6. Check if the map was adapted correctly
+
+    // Compute the actual size of the reallocated chunk by iterating the map
+    if (progs_getChunkSize(heap, chunks[reallocIndex].head) != newSize) {
+        error_onHeap(heap, "realloc map adapt. fail");
+    }
+
+    // Compute the size of the untouched chunks
+    for (i = 0; i < cSize; i++) {
+        if (IS_PERSISTENT(i)) {
+            if (progs_getChunkSize(heap, chunks[i].head) != chunks[i].size) {
+                error_onHeap(heap, "realloc map damage");
+            }
+        }
+    }
+
+
+    // 7. Check if the new chunk overlaps with other chunks
+
+    // Rewrite the pattern in the reallocated chunk.
+    writePat(heap, chunks + reallocIndex, reallocIndex);
+
+    // Check all patterns of non dummy chunks.
+    // Therefore checking if reallocation interfered with any other chunk.
+    for (i = 0; i < cSize; i++) {
+        if (!chunks[i].dummy && !checkChunkPat(heap, chunks + i, i)) {
+            error_onHeap(heap, "realloc pattern broken");
+        }
+    }
+
+
+    // 8. Check if the chunk is at the correct position
+
+    bool found = false;
+    for (i = 0; !found && i < cSize; i++) {
+        if ((1 << (6 - i)) & destination) {
+            if (i == reallocIndex) {
+                found = (chunks[reallocIndex].head == old.head);
             } else {
-                lcd_writeDec(errors);
+                found = (chunks[reallocIndex].head == chunks[i].head);
             }
         }
     }
+
+
+    // 9. Clean up
+
+    // Free remaining chunks
+    massFree(heap, chunks, cSize);
+
+    return found;
+
+
+#undef  IS_PERSISTENT
+#undef  IS_REALLOC_CANDIDATE
+#undef  IS_DUMMY
 }
 
 /*!
- * Performs one of the MEMTEST-functions in order to check if external memory.
- * The test-function is executed in 6 steps. In each step several rounds are
- * performed. In each round the function is finally executed for 'max' cells.
- * \param testId      ID of test that is displayed
- * \param iterations  Number of iterations the MEMTEST-function is executed
- *                    for each cell (specified by max)
- * \param max         Number of cells the MEMTEST-function is executed for in
- *                    each round.
- * \param errorsAsHex Set this to true, if you want hexadecimal output of errors
- * \param *testName   Name of test that is shown on the LCD
- * \param *test       MEMTEST-function that is to be executed
- * \return            1 if an error occurred, 0 if not
+ * Print test message.
+ * \param   i    Index of test
+ * \param  *msg  Name of test
+ * \param  *heap Heap on which the test is performed
  */
-char tt_performTest(uint8_t testId, uint8_t iterations, uint16_t max, bool errorsAsHex, char const* testName, MEMTEST((*test))) {
-    // Test setup and some print outs.
-    lcd_clear();
-    lcd_writeProgString(PSTR("Testing "));
-    lcd_writeProgString(testName);
-    delayMs(LCD_DELAY);
+void test(char i, char const* msg, Heap* heap) {
 
-    // Note: only use primes (including 1) (numeric black magic for optimal
-    // diversity of tests
-    Factor const factors[] = {1, 7, 13, 29, 101, 127};
-    uint8_t step;
-    uint8_t const factorSize = sizeof(factors) / sizeof(factors[0]);
-    uint32_t errors = 0;
-
-    // Using different factors (step) in several rounds, perform the test once
-    // for each memory cell (cell) up to a maximum.
-    for (step = 0; step < factorSize; step++) {
-        lcd_clear();
-        // Print progress
-        lcd_writeDec(step + 1);
-        lcd_writeChar('/');
-        lcd_writeDec(factorSize);
-        // Print number of errors
-        lcd_writeChar(' ');
-        tt_renderError(errors, errorsAsHex, false);
-
-        uint8_t round;
-        for (round = 0; round < iterations; round++) {
-            MemAddr cell;
-            for (cell = 0; cell < max; cell++) {
-                test(factors[step], round, cell, &errors);
-            }
-        }
+    static char PROGMEM const spaces16[] = "                ";
+    os_enterCriticalSection();
+    if (heap == intHeap) {
+        lcd_line1();
+        lcd_writeProgString(spaces16);
+        lcd_line1();
+        lcd_writeChar(i);
+        lcd_writeProgString(PSTR("i:"));
     }
+    if (heap == extHeap) {
+        lcd_line2();
+        lcd_writeProgString(spaces16);
+        lcd_line2();
+        lcd_writeChar(i);
+        lcd_writeProgString(PSTR("e:"));
+    }
+    lcd_writeProgString(msg);
+    os_leaveCriticalSection();
+    delayMs(5 * DELAY);
+}
 
-    // Check on success and print out.
-    lcd_clear();
-    lcd_writeProgString(PSTR("Test #"));
-    lcd_writeDec(testId);
-    lcd_writeChar(':');
-    lcd_line2();
-    if (errors) {
-        lcd_writeProgString(PSTR("FEHLER: "));
-        tt_renderError(errors, errorsAsHex, true);
-        delayMs(4 * LCD_DELAY);
+/*!
+ * If a reallocation test was successful, this prints "OK" in the correct line
+ * \param  *heap Heap on which the test was successful
+ */
+void ok(Heap* heap) {
+    os_enterCriticalSection();
+    if (heap == intHeap) {
+        lcd_goto(1, 15);
+    }
+    if (heap == extHeap) {
+        lcd_goto(2, 15);
+    }
+    lcd_writeProgString(PSTR("OK"));
+    os_leaveCriticalSection();
+    delayMs(5 * DELAY);
+}
+
+/*!
+ * If a reallocation test fails, this function prints "FAIL" and labels the
+ * whole test on that heap as failed.
+ * \param  *heap Heap where the test failed
+ */
+void fail(Heap* heap) {
+    os_enterCriticalSection();
+    if (heap == intHeap) {
+        lcd_goto(1, 13);
+        failI = true;
+    }
+    if (heap == extHeap) {
+        lcd_goto(2, 13);
+        failE = true;
+    }
+    lcd_writeProgString(PSTR("FAIL"));
+    os_leaveCriticalSection();
+    delayMs(5 * DELAY);
+}
+
+/*!
+ * Runs the tests on one of the heaps.
+ * \param  *heap Heap on which the tests are run.
+ */
+void runTest(Heap* heap) {
+    // Expand by the chunk to the right.
+    // Use free memory to the right.
+    test('1', PSTR("R.res."), heap);
+    if (makeTest(heap, 0b1110101, 0b0001100, 0xFF, 0b0001000)) {
+        ok(heap);
     } else {
-        lcd_writeProgString(PSTR("Successful!"));
-    }
-    delayMs(LCD_DELAY);
-    lcd_clear();
-
-    // Clean up.
-    MemAddr i;
-    for (i = 0; i < SIZE; i++) {
-        extHeap->driver->write(i, 0);
+        error_onHeap(heap, "R.res. fail");
+        fail(heap);
     }
 
-    return !!errors; // The double negation will result in a boolean value of either 0 or 1
+    // Expand by the chunk to the left
+    // Use free memory to the left or free and malloc.
+    test('2', PSTR("L.res."), heap);
+    if (makeTest(heap, 0b1010011, 0b0011000, 0xFF, 0b0010000)) {
+        ok(heap);
+    } else {
+        error_onHeap(heap, "L.res. fail");
+        fail(heap);
+    }
+
+    // Force expansion by one chunk to the left.
+    test('3', PSTR("L.res.frc."), heap);
+    if (makeTest(heap, 0b0010000, 0b0011000, 0xFF, 0b0010000)) {
+        ok(heap);
+    } else {
+        error_onHeap(heap, "L.res.frc. fail");
+        fail(heap);
+    }
+
+    // Expand by a bit more than the chunk to the right.
+    // Use free memory to the left and right or free and malloc.
+    test('4', PSTR("LR res."), heap);
+    if (makeTest(heap, 0b1010101, 0b0001100, 2, 0b0010000)) {
+        ok(heap);
+    } else {
+        error_onHeap(heap, "LR res. fail");
+        fail(heap);
+    }
+
+    // Expand by a bit more than the free memory to the right.
+    // Force expansion to the left and right.
+    test('5', PSTR("LR res.frc."), heap);
+    if (makeTest(heap, 0b0010100, 0b0001100, 2, 0b0010000)) {
+        ok(heap);
+    } else {
+        error_onHeap(heap, "LR res.frc. fail");
+        fail(heap);
+    }
+
+    // Expand chunk to roughly double size without having free memory left or right.
+    // Thereby forcing to move (free and malloc) the chunk.
+    test('6', PSTR("Move"), heap);
+    if (makeTest(heap, 0b1100001, 0b1000000, 0xFF, 0b1000001)) {
+        ok(heap);
+    } else {
+        error_onHeap(heap, "Move fail");
+        fail(heap);
+    }
+
+    // Shrink chunk to randomly chosen smaller size.
+    test('7', PSTR("Shrink"), heap);
+    if (makeTest(heap, 0b1110111, 0b0000000, 3, 0b0001000)) {
+        ok(heap);
+    } else {
+        error_onHeap(heap, "Shrink fail");
+        fail(heap);
+    }
+
+    // Keep the chunk as is.
+    test('8', PSTR("Keep"), heap);
+    if (makeTest(heap, 0b1110111, 0b0001000, 0xFF, 0b0001000)) {
+        ok(heap);
+    } else {
+        error_onHeap(heap, "Keep fail");
+        fail(heap);
+    }
 }
 
 
-// Memtests
-
-/*!
- * Test basic read/write functionality. It writes the byte i*f to the address i
- * and then checks if it was properly stored to the address by reading it again.
- */
-MEMTEST(tt_doubleAccess) {
-    extHeap->driver->write(cell, cell * f);
-    *errors += extHeap->driver->read(cell) != (0xFF & (cell * f)); // Only compare saved bits of i*f
+PROGRAM(1, AUTOSTART) {
+    runTest(intHeap);
+    checkI = true;
 }
 
-/*!
- * Tests if address is applied correctly to external memory. Here the
- * parameter cell is not indicating a certain address, but one address-
- * line that is to be checked.
- */
-MEMTEST(tt_addressBits) {
-    // For odd rounds we take the i-th last address-bit. For even rounds we take
-    // the i-th. (cell is small enugh)
-    uint8_t const addressBit = (round & 1) ? (ADDRESS_BITS - cell - 1) : cell;
-    uint8_t const pattern = addressBit * f ? addressBit * f : 0xFF;
-    // Static phase: This phase does not depend on the function parameters
-    extHeap->driver->write(0, 0xFF);
-    extHeap->driver->write(0xFF, 0);
-    *errors += (extHeap->driver->read(0) != 0xFF);
-    extHeap->driver->read(0xFF);
-    extHeap->driver->write(0, 0);
-    extHeap->driver->write(0xFF, 0xFF);
-    *errors += (extHeap->driver->read(0) != 0x00);
-    // Dynamic phase
-    extHeap->driver->write(1ul << addressBit, pattern);
-    *errors += (extHeap->driver->read(0) != 0);
+PROGRAM(2, AUTOSTART) {
+    runTest(extHeap);
+    checkE = true;
 }
 
-/*!
- * In the first round (0) it writes a value to the cell. In the second round
- * (1) it reads the value of the same cell and checks if it is correct.
- * Checks if every memory cell is written exactly once.
- */
-MEMTEST(tt_integrity) {
-    MemValue val = cell * f;
-    if (round == 0) {
-        extHeap->driver->write(cell, val);
-    } else if (round == 1) {
-        if (extHeap->driver->read(cell) != (0xFF & val)) {
-            (*errors)++;
-        }
+PROGRAM(3, AUTOSTART) {
+    while (!checkI || !checkE);
+
+    if (!failE && !failI) {
+		// SUCCESS
+		lcd_clear();
+		lcd_writeProgString(PSTR("ALL TESTS PASSED"));
+		lcd_line2();
+		lcd_writeProgString(PSTR(" PLEASE CONFIRM!"));
+		os_waitForInput();
+		os_waitForNoInput();
+		lcd_clear();
+		lcd_writeProgString(PSTR("WAITING FOR"));
+		lcd_line2();
+		lcd_writeProgString(PSTR("TERMINATION"));
+		delayMs(1000);
+    } else {
+        lcd_clear();
+        lcd_writeProgString(PSTR("  TEST FAILED!"));
+        while (1);
     }
-}
-
-/*!
- * Tests if everything of the above works. This is done by writing and reading
- * patterns from the cells.
- */
-MEMTEST(tt_inversions) {
-    MemValue const pat = cell * f ^ (uint8_t) - (round & 1);
-    // Note f and 2 have no factor in common, so (i->f*i) is a permutation on Z/(2**13)Z
-    MemAddr const p = (cell * f) % SIZE;
-    if (round) {
-        // In the first (0) round nothing is read, for obvious reasons
-        *errors += extHeap->driver->read(p) != pat;
-    }
-    extHeap->driver->write(p, pat ^ 0xFF);
 }
