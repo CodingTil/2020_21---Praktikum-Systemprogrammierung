@@ -26,7 +26,8 @@ typedef enum SchedulingStrategy {
     OS_SS_RANDOM,
     OS_SS_RUN_TO_COMPLETION,
     OS_SS_ROUND_ROBIN,
-    OS_SS_INACTIVE_AGING
+    OS_SS_INACTIVE_AGING,
+	OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE
 } SchedulingStrategy;
 
 // Change this define to reflect the number of available strategies:
@@ -81,6 +82,8 @@ SchedulingStrategy os_getSchedulingStrategy(void);
 
 //! Calculates the checksum of the stack for the corresponding process of pid.
 StackChecksum os_getStackChecksum(ProcessID pid);
+
+void os_yield();
 
 //----------------------------------------------------------------------------
 // Critical section management

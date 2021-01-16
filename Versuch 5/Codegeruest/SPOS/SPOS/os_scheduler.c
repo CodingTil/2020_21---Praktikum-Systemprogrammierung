@@ -83,6 +83,7 @@ ISR(TIMER2_COMPA_vect) {
 		case OS_SS_ROUND_ROBIN: currentProc = os_Scheduler_RoundRobin(os_processes, currentProc); break;
 		case OS_SS_INACTIVE_AGING: currentProc = os_Scheduler_InactiveAging(os_processes, currentProc); break;
 		case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
+		case OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE: currentProc = os_Scheduler_MLFQ(os_processes, currentProc); break;
 	}
 	
 	os_processes[currentProc].state = OS_PS_RUNNING;
@@ -113,7 +114,10 @@ bool os_kill(ProcessID pid) {
 		criticalSectionCount = 1; // This ensures that this program has no critical sections left.
 	}
 	os_leaveCriticalSection();
-	while (pid == currentProc);
+	//while (pid == currentProc);
+	if (pid == currentProc) {
+		os_yield();
+	}
 	return true;
 }
 
@@ -283,6 +287,7 @@ void os_initScheduler(void) {
 	for(uint8_t index = 0; index < MAX_NUMBER_OF_PROGRAMS; index++) {
 		if(os_checkAutostartProgram(index)) os_exec(index, DEFAULT_PRIORITY);
 	}
+	
 }
 
 /*!
@@ -350,6 +355,7 @@ uint8_t os_getNumberOfRegisteredPrograms(void) {
 void os_setSchedulingStrategy(SchedulingStrategy strategy) {
 	os_resetSchedulingInformation(strategy);
     currentSchedStrat = strategy;
+	os_initSchedulingInformation();
 }
 
 /*!
@@ -423,4 +429,11 @@ StackChecksum os_getStackChecksum(ProcessID pid) {
 	    sum ^= *(i.as_ptr);
     }
     return sum;
+}
+
+void os_yield() {
+	//TODO: CRITICAL SECTION IMPLEMENTATION!!
+	os_processes[currentProc].state = OS_PS_BLOCKED;
+	TIMER2_COMPA_vect();
+	
 }
