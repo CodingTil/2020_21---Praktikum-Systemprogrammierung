@@ -177,7 +177,7 @@ ProcessID pqueue_getFirst(ProcessQueue *queue) {
 }
 
 void pqueue_dropFirst(ProcessQueue *queue) {
-	if (pqueue_hasNext(queue) > 0) {
+	if (pqueue_hasNext(queue)) {
 		queue->data[queue->tail] = 0;
 		queue->tail++;
 		queue->tail = queue->tail % MAX_NUMBER_OF_PROCESSES;
