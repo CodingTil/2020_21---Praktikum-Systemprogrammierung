@@ -9,6 +9,7 @@
 #include "os_memheap_drivers.h"
 
 #include <avr/interrupt.h>
+#include <stdbool.h>
 
 //----------------------------------------------------------------------------
 // Private Types
@@ -83,6 +84,7 @@ ISR(TIMER2_COMPA_vect) {
 		case OS_SS_ROUND_ROBIN: currentProc = os_Scheduler_RoundRobin(os_processes, currentProc); break;
 		case OS_SS_INACTIVE_AGING: currentProc = os_Scheduler_InactiveAging(os_processes, currentProc); break;
 		case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
+		case OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE: currentProc = os_Scheduler_MLFQ(os_processes, currentProc); break;
 	}
 	
 	os_processes[currentProc].state = OS_PS_RUNNING;
@@ -423,4 +425,13 @@ StackChecksum os_getStackChecksum(ProcessID pid) {
 	    sum ^= *(i.as_ptr);
     }
     return sum;
+}
+
+
+
+void os_yield(void) {
+	TIMER2_COMPA_vect();
+	os_processes[currentProc].state = OS_PS_BLOCKED;
+	
+	
 }

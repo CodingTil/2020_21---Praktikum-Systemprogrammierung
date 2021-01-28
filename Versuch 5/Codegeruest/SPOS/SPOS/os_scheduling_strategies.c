@@ -19,6 +19,8 @@ void os_resetSchedulingInformation(SchedulingStrategy strategy) {
 		for(uint8_t i = 0; i < MAX_NUMBER_OF_PROCESSES; i++) {
 			schedulingInfo.age[i] = 0;
 		}
+	} else if (strategy == OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE) {
+		os_initSchedulingInformation();
 	}
 }
 
@@ -31,6 +33,7 @@ void os_resetSchedulingInformation(SchedulingStrategy strategy) {
  */
 void os_resetProcessSchedulingInformation(ProcessID id) {
     schedulingInfo.age[id] = 0;
+	schedulingInfo.remainingts[id] = MLFQ_getDefaultTimeslice(os_getProcessSlot(id)->priority);
 }
 
 /*!
@@ -141,4 +144,154 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 ProcessID os_Scheduler_RunToCompletion(Process const processes[], ProcessID current) {
     if(processes[current].state == OS_PS_UNUSED) return os_Scheduler_Even(processes, current);
 	return current;
+}
+
+
+
+
+//Start of Implementation of functions for Multilevel-Feedback-Queue
+void pqueue_init(ProcessQueue *queue) {
+	queue->tail =  0;
+	queue->head = 0;
+	queue->size = MAX_NUMBER_OF_PROCESSES;
+}
+
+//Resets buffer
+void pqueue_reset(ProcessQueue *queue) {
+	queue->head = 0;
+	queue->tail = 0;
+}
+
+//Checks whether there is next ProcessID
+uint8_t pqueue_hasNext(ProcessQueue *queue) {
+	uint8_t check = queue->tail;
+	if (check != queue->head) {
+		return queue->data[queue->tail];
+	}
+	return 0;
+}
+
+// Functions for reading and writing
+ProcessID pqueue_getFirst(ProcessQueue *queue) {
+	return pqueue_hasNext(queue);
+}
+
+void pqueue_dropFirst(ProcessQueue *queue) {
+	if (pqueue_hasNext(queue) > 0) {
+		queue->data[queue->tail] = 0;
+		queue->tail++;
+		queue->tail = queue->tail % MAX_NUMBER_OF_PROCESSES;
+	}
+}
+
+void pqueue_append(ProcessQueue *queue, ProcessID pid) {
+	if (queue->head == MAX_NUMBER_OF_PROCESSES) {
+		queue->data[0] = pid;
+		queue->head = 0;
+	} else {
+		queue->data[queue->head + 1] = pid
+		queue->head++;
+	}
+
+}
+
+
+ProcessQueue* MLFQ_getQueue(uint8_t queueID) {
+	if (queueID >= 0 && queueID < 4) {
+		return &(schedulingInfo.queues[queueID]);
+	}
+	return 0;
+}
+
+void os_initSchedulingInformation() {
+	pqueue_init(&(schedulingInfo.queues[0]));
+	pqueue_init(&(schedulingInfo.queues[1]));
+	pqueue_init(&(schedulingInfo.queues[2]));
+	pqueue_init(&(schedulingInfo.queues[3]));
+	schedulingInfo.timeslices[0] = 1;
+	schedulingInfo.timeslices[1] = 2;
+	schedulingInfo.timeslices[2] = 4;
+	schedulingInfo.timeslices[3] = 8;
+	
+}
+
+ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
+	order_blocked_processes();
+	ProcessID pid;
+	for (int i = 0; i < 4; i++) {
+		pid = pqueue_hasNext(&(schedulingInfo.queues[i])); 
+		if (pid && os_getProcessSlot(pid)->state == OS_PS_READY) {
+			ProcessID chosen = pqueue_getFirst(&(schedulingInfo.queues[i]));
+			/*
+			each process gets default timeslices after the 
+			initialization due to function os_resetProcessSchedulingInformation --> the
+			value is stored in array remainingtimeslice at the index of the ProcessID of 
+			the process
+			*/
+			schedulingInfo.remainingts[chosen]--;
+			if (schedulingInfo.remainingts[chosen] == 0) {
+				pqueue_dropFirst(&(schedulingInfo.queues[i]));
+				if (i < 3) {
+					pqueue_append(&(schedulingInfo.queues[i+1]));
+					schedulingInfo.remainingts[chosen] = MLFQ_getDefaultTimeslice(i+1);
+				} else {
+					//process remains in class 4 if it still needs processing time
+					if(processes[chosen].state == OS_PS_READY) {
+						pqueue_append(&(schedulingInfo.queues[3]));
+						schedulingInfo.remainingts[chosen] = MLFQ_getDefaultTimeslice(3);
+					}
+				}
+			}
+			/*
+			Blocked processes were not considered in this request --> 
+			set them ready to guarantee that blocked process are only ignored once -->
+			available next scheduling
+			*/
+			for (int j = 0; j < sizeof(processes); j++) {
+				if (processes[j].state == OS_PS_BLOCKED) {
+					processes[j].state = OS_PS_READY;
+				}
+			}
+			return chosen;
+		}
+	}
+	//idle process
+	return 0;
+}
+
+
+/*
+helper function orderblocked appends blocked processes to the end of the 
+Process Queue in each Queue
+*/
+void order_blocked_processes() {
+	for (int i = 0; i < 4; i++) {
+		ProcessID check = pqueue_hasNext(&(schedulingInfo.queues[i]));
+		if (os_getProcessSlot(check) == OS_PS_BLOCKED) {
+			pqueue_dropFirst(&(schedulingInfo.queues[i]));
+			pqueue_append(&(schedulingInfo.queues[i]),check);
+		}
+		while(pqueue_hasNext(&(schedulingInfo.queues[i]) == OS_PS_BLOCKED && check != pqueue_hasNext(&(schedulingInfo.queues[i])) {
+			pqueue_dropFirst(&(schedulingInfo.queues[i]));
+			pqueue_append(&(schedulingInfo.queues[i]),check);
+		}
+	}
+}
+
+void MLFQ_removePID(ProcessID pid) {
+	for (int i = 0; i < 4; i++) {
+		for (uint8_t q = 0; q < MAX_NUMBER_OF_PROCESSES; q++) {
+			if (schedulingInfo.queues[i].data[q] == pid) {
+				schedulingInfo.queues[i].data[q] == 0;	
+			}
+		}
+	}
+}
+
+uint8_t MLFQ_getDefaultTimeslice(uint8_t queueID) {
+	return schedulingInfo.timeslices[queueID];
+}
+
+uint8_t MLFQ_MapToQueue(Priority prio) {
+	return (prio >> 6)
 }

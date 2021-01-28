@@ -1,9 +1,0 @@
-<map id="lcd_init" name="lcd_init">
-<area shape="rect" id="node1" title="Initialize LCD." alt="" coords="5,107,75,133"/>
-<area shape="rect" id="node2" href="$util_8c.html#abbd75ad6fe1f975a544131cdf8d71287" title="Waits for some milliseconds." alt="" coords="173,5,251,32"/>
-<area shape="rect" id="node4" href="$lcd_8h.html#ad235a86241458b1e7b8771688bfdaf9a" title="Clear all data from display." alt="" coords="172,56,252,83"/>
-<area shape="rect" id="node5" href="$lcd_8h.html#acb116d89c358367b8fd1164120d320e3" title="Send command to LCD." alt="" coords="355,107,469,133"/>
-<area shape="rect" id="node6" href="$lcd_8h.html#aca4a9d0155c7c7ec0c5ce4c2f5347847" title="Enable LCD." alt="" coords="166,157,258,184"/>
-<area shape="rect" id="node7" href="$lcd_8h.html#a9145ad7b7dd6a45f9a84cf3d424c5cf2" title="Register a customly designed character with the LCD." alt="" coords="123,208,301,235"/>
-<area shape="rect" id="node3" href="$util_8c.html#a31a009dd17764a744deeda855ba66954" title=" " alt="" coords="349,5,475,32"/>
-</map>
