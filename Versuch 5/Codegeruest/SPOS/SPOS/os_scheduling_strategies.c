@@ -261,7 +261,7 @@ ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
 
 
 /*
-helper function orderblocked appends blocked processes to the end of the 
+helper function order_blocked_processes appends blocked processes to the end of the 
 Process Queue in each Queue
 */
 void order_blocked_processes() {

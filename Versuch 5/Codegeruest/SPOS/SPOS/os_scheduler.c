@@ -430,8 +430,8 @@ StackChecksum os_getStackChecksum(ProcessID pid) {
 
 
 void os_yield(void) {
+	os_enterCriticalSection();
 	TIMER2_COMPA_vect();
 	os_processes[currentProc].state = OS_PS_BLOCKED;
-	
-	
+	os_leaveCriticalSection();
 }

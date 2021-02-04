@@ -93,7 +93,7 @@ void os_enterCriticalSection(void);
 //! Leaves a critical code section
 void os_leaveCriticalSection(void);
 
-//! Give away remaining processing time
+//! Render remaining processing time
 void os_yield(void);
 
 #endif

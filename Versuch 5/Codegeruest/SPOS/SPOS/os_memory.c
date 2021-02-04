@@ -256,3 +256,121 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 	os_leaveCriticalSection();
 	return 0;
 }
+
+/*
+due to the size of a nibble there are 16 possible states in the map
+first eight states are covered by Process ID's from 0 to 7
+since we need two different states for an open shared memory and a writing state, this implementation provides states for five different reading processes
+open shared memory: 0b1000
+writing mode:		0b1001
+reading:			0b1010
+reading 2:			0b1011
+reading3:			0b1100
+reading4:			0b1101
+reading5:			0b1110
+
+0xF is already used for showing connected memory chunks
+*/
+
+
+
+void os_sh_free(Heap *heap, MemAddr *addr) {
+	MemAddr ad = os_getFirstByteOfChunk(heap,addr);
+	if (os_getMapEntry(heap, ad) == 0b1000) {
+		os_free(heap, &addr);
+		} else {
+		return;
+	}
+}
+
+
+
+MemAddr os_sh_malloc(Heap *heap, size_t size) {
+	os_enterCriticalSection();
+	MemAddr mal = os_malloc(heap, size);
+	setMapEntry(heap, mal, 0b1000);
+	os_leaveCriticalSection();
+	return mal;
+}
+
+MemAddr os_sh_readOpen(Heap const *heap, MemAddr const *ptr) {
+	while (reading_possible(heap,&ptr) == false) {
+		os_yield();
+	}
+	os_enterCriticalSection();
+	MemAddr addr = os_getFirstByteOfChunk(heap, &ptr);
+	setMapEntry(heap,addr, (os_getMapEntry(heap,addr) +1));
+	os_leaveCriticalSection();
+	return &ptr;
+}
+
+bool reading_possible(Heap const *heap, MemAddr addr) {
+	ProcessID id = getOwnerOfChunk(heap,addr);
+	if ((id & 0b1001) == 0b1001) {
+		//writing
+		return false;
+	}
+	if ((id | 0b0111) == 0b0111) {
+		//id is between 0 and 7
+		return false;
+	}
+	if ((id & 0b1110) == 0b1110) {
+		//shared memory is already read by 5 processes
+		return false;
+	}
+	return true;
+}
+
+bool writing_possible(Heap const *heap, MemAddr addr) {
+	ProcessID id = getOwnerOfChunk(heap, addr);
+	if ((id & 0b1000) == 0b1000) {
+		return true;
+	}
+	return false;
+}
+
+MemAddr os_sh_writeOpen(Heap const *heap, MemAddr const *ptr) {
+	while (writing_possible(heap,&ptr) == false) {
+		os_yield();
+	}
+	os_enterCriticalSection();
+	MemAddr addr = os_getFirstByteOfChunk(heap, &ptr);
+	setMapEntry(heap, addr, 0b1001);
+	os_leaveCriticalSection();
+	return &addr;
+}
+
+void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length) {
+	ProcessID id = getOwnerOfChunk(heap, &ptr);
+	MemAddr check = os_sh_writeOpen(heap, ptr);
+	if ((id == 0b1001)) {
+		for (uint16_t i = (0 + offset); i < offset + length; i++) {
+			MemValue wert = intHeap.driver->read(dataSrc + i);
+			intHeap.driver.write(check + i,wert);
+		}
+		os_sh_close(heap, &ptr);
+	}
+}
+
+void os_sh_read(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue *dataDest, uint16_t length) {
+	ProcessID id = getOwnerOfChunk(heap,&ptr);
+	MemAddr check = os_sh_readOpen(heap, ptr);
+	if ((id | 0b0111) == 0b1111 && id != 0xF && id != 0b1001) {
+		for (uint16_t i = (0 + offset); i < offset + length; i++) {
+			MemValue wert = heap->driver->read(check + i);
+			intHeap.driver->write(dataDest + i, wert);
+		}
+		os_enterCriticalSection();
+		MemAddr end = os_getFirstByteOfChunk(heap, &ptr);
+		setMapEntry(heap, end, os_getMapEntry(heap, end) - 1);
+		os_leaveCriticalSection();
+	}
+}
+
+
+void os_sh_close(Heap const* heap, MemAddr addr) {
+	os_enterCriticalSection();
+	MemAddr chunk = os_getFirstByteOfChunk(heap,addr);
+	setMapEntry(heap, chunk, 0b1000);
+	os_leaveCriticalSection();
+}
