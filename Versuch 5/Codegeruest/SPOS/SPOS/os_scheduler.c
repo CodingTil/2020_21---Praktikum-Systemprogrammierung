@@ -114,6 +114,7 @@ bool os_kill(ProcessID pid) {
 	if (pid == 0) return false;
 	os_enterCriticalSection();
 	os_processes[pid].state = OS_PS_UNUSED;
+	os_resetProcessSchedulingInformation(pid);
 	os_freeProcessMemory(intHeap, pid);
 	os_freeProcessMemory(extHeap, pid);
 	if (pid == currentProc) {

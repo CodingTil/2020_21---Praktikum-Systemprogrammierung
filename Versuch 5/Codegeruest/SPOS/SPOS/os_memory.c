@@ -30,7 +30,7 @@ void setMapEntry(Heap const *heap, MemAddr addr, MemValue value) {
 	MemAddr map_addr = getMapAddress(heap, addr);
 	if ((addr - heap->use_start) % 2 == 0) {
 		setHighNibble(heap, map_addr, value);
-	} else {
+		} else {
 		setLowNibble(heap, map_addr, value);
 	}
 }
@@ -39,7 +39,7 @@ MemValue os_getMapEntry(Heap const* heap, MemAddr addr) {
 	MemAddr map_addr = getMapAddress(heap, addr);
 	if ((addr - heap->use_start) % 2 == 0) {
 		return getHighNibble(heap, map_addr);
-	} else {
+		} else {
 		return getLowNibble(heap, map_addr);
 	}
 }
@@ -165,7 +165,7 @@ bool sh_is_open(Heap const *heap, MemAddr addr) {
 void os_free(Heap* heap, MemAddr address) {
 	if(sh_is_shared_memory(heap, address)) {
 		os_error("Memory is shared memory.");
-	}else {
+		}else {
 		os_freeOwnerRestricted(heap, address, os_getCurrentProc());
 	}
 }
@@ -337,22 +337,21 @@ void os_sh_free(Heap* heap, MemAddr *addr) {
 			os_yield();
 		}
 		os_freeOwnerRestricted(heap, *addr, SH_ALLOC);
-	}else {
+		}else {
 		os_error("Memory is not shared memory.");
 	}
 }
 
 void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length) {
-	uint16_t sh_chunk_size = os_getChunkSize(heap, ptr);
+	//Only works with this first?!?!?!?
+	uint16_t sh_chunk_size = os_getChunkSize(heap, (MemAddr) *ptr);
 	if(!(sh_chunk_size >= length + offset)) {
 		os_error("Chunk sizes too small.");
 		return;
 	}
-
 	
 	MemAddr sh_addr = os_sh_writeOpen(heap, ptr);
 	if(sh_addr == 0) return;
-	
 	
 	int i = 0;
 	
@@ -387,43 +386,49 @@ void os_sh_read(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue 
 }
 
 MemAddr os_sh_readOpen (Heap const *heap, MemAddr const *ptr) {
-	if(!(*ptr >= heap->use_start && *ptr < heap->use_start + heap->use_size)) {
+	os_enterCriticalSection();
+	MemAddr addr = *ptr;
+	if(!(addr >= heap->use_start && addr < heap->use_start + heap->use_size)) {
 		//os_error("Out of bounds.");
+		os_leaveCriticalSection();
 		return 0;
 	}
-	if(!sh_is_shared_memory(heap, *ptr)) {
+	if(!sh_is_shared_memory(heap, addr)) {
 		os_error("Memory not shared memory.");
+		os_leaveCriticalSection();
 		return 0;
 	}
 	
-	while (sh_is_writing(heap, *ptr) || sh_get_reading(heap, *ptr) >= SH_MAX_READING) {
+	while (sh_is_writing(heap, addr) || sh_get_reading(heap, addr) >= SH_MAX_READING) {
+		os_leaveCriticalSection();
 		os_yield();
-		//return 0;
+		os_enterCriticalSection();
 	}
-	os_enterCriticalSection();
-	sh_add_reading(heap, *ptr);
-	MemAddr addr = *ptr;
+	sh_add_reading(heap, addr);
 	os_leaveCriticalSection();
 	return addr;
 }
 
 MemAddr os_sh_writeOpen (Heap const *heap, MemAddr const *ptr) {
-	if(!(*ptr >= heap->use_start && *ptr < heap->use_start + heap->use_size)) {
+	os_enterCriticalSection();
+	MemAddr addr = *ptr;
+	if(!(addr >= heap->use_start && addr < heap->use_start + heap->use_size)) {
 		//os_error("Out of bounds.");
+		os_leaveCriticalSection();
 		return 0;
 	}
-	if(!sh_is_shared_memory(heap, *ptr)) {
+	if(!sh_is_shared_memory(heap, addr)) {
 		os_error("Memory not shared memory.");
+		os_leaveCriticalSection();
 		return 0;
 	}
 	
-	while(sh_is_writing(heap, *ptr) || sh_is_reading(heap, *ptr)) {
-		//return 0;
+	while(sh_is_writing(heap, addr) || sh_is_reading(heap, addr)) {
+		os_leaveCriticalSection();
 		os_yield();
+		os_enterCriticalSection();
 	}
-	os_enterCriticalSection();
-	sh_set_writing(heap, *ptr);
-	MemAddr addr = *ptr;
+	sh_set_writing(heap, addr);
 	os_leaveCriticalSection();
 	return addr;
 }

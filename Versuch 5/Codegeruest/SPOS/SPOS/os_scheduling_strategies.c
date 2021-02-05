@@ -2,6 +2,7 @@
 #include "defines.h"
 
 #include <stdlib.h>
+#include <math.h>
 
 SchedulingInformation schedulingInfo;
 
@@ -32,7 +33,8 @@ void os_resetSchedulingInformation(SchedulingStrategy strategy) {
 void os_resetProcessSchedulingInformation(ProcessID id) {
     schedulingInfo.age[id] = 0;
 	MLFQ_removePID(id);
-	pqueue_append(&schedulingInfo.queues[os_getProcessSlot(id)->priority], id);
+	pqueue_append(MLFQ_getQueue(os_getProcessSlot(id)->priority), id);
+	schedulingInfo.counter[id] = MLFQ_getDefaultTimeslice(os_getProcessSlot(id)->priority);
 }
 
 /*!
@@ -137,43 +139,6 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 	return max_age;
 }
 
-ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
-	for (uint8_t i = 0; i < PRIORITY_CLASSES; i++) {
-		if (pqueue_hasNext(&schedulingInfo.queues[i])) {
-			ProcessID newPID = pqueue_getFirst(&schedulingInfo.queues[i]);
-			if (processes[newPID].state == OS_PS_BLOCKED) {
-				pqueue_dropFirst(&schedulingInfo.queues[i]);
-				pqueue_append(&schedulingInfo.queues[i], newPID);
-				return newPID;	
-			}
-			if (newPID == current) {
-				// no new process with lower priority
-				if (schedulingInfo.currentSlicesCounter == 0 || processes[current].state != OS_PS_READY) {
-					pqueue_dropFirst(&schedulingInfo.queues[i]);
-					if (i + 1 == PRIORITY_CLASSES ) {
-						pqueue_append(&schedulingInfo.queues[i], current);
-					} else {
-						pqueue_append(&schedulingInfo.queues[i+1], current);
-					}
-					if (pqueue_hasNext(&schedulingInfo.queues[i])) {
-						schedulingInfo.currentSlicesCounter = schedulingInfo.zeitscheiben[i] - 1;
-						return pqueue_getFirst(&schedulingInfo.queues[i]);
-					} else {
-						continue;
-					}
-				} else {
-					schedulingInfo.currentSlicesCounter--;
-					return newPID;
-				}
-			} else {
-				// new process found.
-				schedulingInfo.currentSlicesCounter = schedulingInfo.zeitscheiben[i] - 1;
-				return newPID;
-			}
-		}
-	}
-	return 0;
-}
 
 /*!
  *  This function realizes the run-to-completion strategy.
@@ -187,6 +152,52 @@ ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
 ProcessID os_Scheduler_RunToCompletion(Process const processes[], ProcessID current) {
     if(processes[current].state == OS_PS_UNUSED || processes[current].state == OS_PS_BLOCKED) return os_Scheduler_Even(processes, current);
 	return current;
+}
+
+ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
+	for(int queueID = 0; queueID < PRIORITY_CLASSES; queueID ++) {
+		ProcessQueue* queue = MLFQ_getQueue(queueID);
+		if(pqueue_hasNext(queue)) {
+			ProcessID next = pqueue_getFirst(queue);
+			if(processes[next].state == OS_PS_BLOCKED) {
+				pqueue_dropFirst(queue);
+				pqueue_append(queue, next);
+				return next; // Scheduler handles blocked
+			}
+
+			if(schedulingInfo.counter[next] == 1) {
+				// Wird jetzt noch aufgerufen, nächstes mal nicht mehr
+				int newQueueID = queueID + 1;
+				if(queueID == PRIORITY_CLASSES - 1) { // Last priority queue
+					newQueueID = queueID;
+				}
+				
+				pqueue_dropFirst(queue);
+				schedulingInfo.counter[next] = MLFQ_getDefaultTimeslice(newQueueID);
+				pqueue_append(MLFQ_getQueue(newQueueID), next);
+			}else {
+				schedulingInfo.counter[next]--;
+			}
+			return next;
+		}
+	}
+	return 0;
+}
+
+void pqueue_removePID(ProcessQueue *queue, ProcessID pid) {
+	for (uint8_t i = 0; i < queue->size; i++) {
+		if (pqueue_hasNext(queue)) {
+			ProcessID first = pqueue_getFirst(queue);
+			if (first != pid) {
+				pqueue_dropFirst(queue);
+				pqueue_append(queue, first);
+			}else {
+				pqueue_dropFirst(queue);
+			}
+		} else {
+			break;
+		}
+	}
 }
 
 void pqueue_init(ProcessQueue *queue) {
@@ -217,23 +228,37 @@ void pqueue_dropFirst(ProcessQueue *queue) {
 }
 
 void pqueue_append(ProcessQueue *queue, ProcessID pid) {
-	queue->data[queue->head] = pid;
+	queue->head++;
 	if (queue->head >= queue->size) {
 		queue->head = 0;
-	}
+	}	
+	queue->data[queue->head] = pid;
 }
 
-void pqueue_removePID(ProcessQueue *queue, ProcessID pid) {
-	for (uint8_t i = 0; i < queue->size; i++) {
-		if (pqueue_hasNext(queue)) {
-			if (pqueue_getFirst(queue) != pid) {
-				pqueue_append(queue, pqueue_getFirst(queue));
-			}
-			pqueue_dropFirst(queue);
-		} else {
-			break;
+ProcessQueue* MLFQ_getQueue(uint8_t queueID) {
+	if(queueID >= 0 && queueID < PRIORITY_CLASSES) {
+		return &schedulingInfo.queues[queueID];
+	}
+	return NULL;
+}
+
+uint8_t MLFQ_getDefaultTimeslice(uint8_t queueID) {
+	return pow(2, queueID);
+}
+
+uint8_t MLFQ_MapToQueue(Priority prio) {
+	return (prio >> 6);
+}
+
+// Not Doxygen
+uint8_t MLFQ_getQueueID(ProcessQueue *queue) {
+	for(uint8_t queueID = 0; queueID < PRIORITY_CLASSES; queueID++) {
+		if(MLFQ_getQueue(queueID) == queue) {
+			return queueID;
 		}
 	}
+	// not found
+	return PRIORITY_CLASSES;
 }
 
 void MLFQ_removePID(ProcessID pid) {
@@ -242,15 +267,9 @@ void MLFQ_removePID(ProcessID pid) {
 	}
 }
 
-ProcessQueue* MLFQ_getQueue(uint8_t queueID) {
-	return &schedulingInfo.queues[queueID];
-}
+
 
 void os_initSchedulingInformation() {
-	schedulingInfo.zeitscheiben[0] = 1;
-	schedulingInfo.zeitscheiben[1] = 2;
-	schedulingInfo.zeitscheiben[2] = 4;
-	schedulingInfo.zeitscheiben[3] = 8;
 	pqueue_init(&schedulingInfo.queues[0]);
 	pqueue_init(&schedulingInfo.queues[1]);
 	pqueue_init(&schedulingInfo.queues[2]);
