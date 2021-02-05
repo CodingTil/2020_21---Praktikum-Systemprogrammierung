@@ -27,7 +27,7 @@ void os_setAllocationStrategy(Heap* heap, AllocStrategy allocStrat);
 
 MemAddr os_mallocOwner(Heap *heap, size_t size, ProcessID owner);
 MemAddr os_sh_malloc(Heap *heap, size_t size);
-void os_sh_free(Heap *heap, MemAddr addr);
+void os_sh_free(Heap *heap, MemAddr *addr);
 MemAddr os_sh_readOpen(Heap const *heap, MemAddr const *ptr);
 MemAddr os_sh_writeOpen(Heap const *heap, MemAddr const *ptr);
 void os_sh_close(Heap const *heap, MemAddr addr);

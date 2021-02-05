@@ -14,6 +14,14 @@
 #include "os_scheduler.h"
 #include "defines.h"
 
+//! Structure for Multilevel-Feedback Queue
+typedef struct {
+	ProcessID data[MAX_NUMBER_OF_PROCESSES];
+	uint8_t head;
+	uint8_t tail;
+	uint8_t size;
+} ProcessQueue;
+
 //! Structure used to store specific scheduling informations such as a time slice
 typedef struct {
 	uint8_t timeSlice; // quantum
@@ -23,14 +31,6 @@ typedef struct {
 	uint8_t remainingts[MAX_NUMBER_OF_PROCESSES];
 } SchedulingInformation;
 
-
-//! Structure for Multilevel-Feedback Queue
-typedef struct {
-	ProcessID data[MAX_NUMBER_OF_PROCESSES];
-	uint8_t head;
-	uint8_t tail;
-	uint8_t size;
-} ProcessQueue; 
 
 //! Used to reset the SchedulingInfo for one process
 void os_resetProcessSchedulingInformation(ProcessID id);
@@ -80,5 +80,7 @@ void MLFQ_removePID(ProcessID pid);
 uint8_t MLFQ_getDefaultTimeslice(uint8_t queueID);
 
 uint8_t MLFQ_MapToQueue(Priority prio);
+
+void order_blocked_processes();
 
 #endif

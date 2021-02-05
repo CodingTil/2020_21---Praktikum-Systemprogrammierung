@@ -25,7 +25,7 @@ MemAddr getMapAddress(Heap const *heap, MemAddr addr) {
 	return (addr - heap->use_start) / 2 + heap->map_start;
 }
 
-void setMapEntry(Heap* heap, MemAddr addr, MemValue value) {
+void setMapEntry(Heap *heap, MemAddr addr, MemValue value) {
 	MemAddr map_addr = getMapAddress(heap, addr);
 	if ((addr - heap->use_start) % 2 == 0) {
 		setHighNibble(heap, map_addr, value);
@@ -275,9 +275,9 @@ reading5:			0b1110
 
 
 void os_sh_free(Heap *heap, MemAddr *addr) {
-	MemAddr ad = os_getFirstByteOfChunk(heap,addr);
+	MemAddr ad = os_getFirstByteOfChunk(heap, (MemAddr) &addr);
 	if (os_getMapEntry(heap, ad) == 0b1000) {
-		os_free(heap, &addr);
+		os_free(heap, (MemAddr) &addr);
 		} else {
 		return;
 	}
@@ -291,17 +291,6 @@ MemAddr os_sh_malloc(Heap *heap, size_t size) {
 	setMapEntry(heap, mal, 0b1000);
 	os_leaveCriticalSection();
 	return mal;
-}
-
-MemAddr os_sh_readOpen(Heap const *heap, MemAddr const *ptr) {
-	while (reading_possible(heap,&ptr) == false) {
-		os_yield();
-	}
-	os_enterCriticalSection();
-	MemAddr addr = os_getFirstByteOfChunk(heap, &ptr);
-	setMapEntry(heap,addr, (os_getMapEntry(heap,addr) +1));
-	os_leaveCriticalSection();
-	return &ptr;
 }
 
 bool reading_possible(Heap const *heap, MemAddr addr) {
@@ -318,8 +307,24 @@ bool reading_possible(Heap const *heap, MemAddr addr) {
 		//shared memory is already read by 5 processes
 		return false;
 	}
+	if (id == 0xF) {
+		return false;
+	}
 	return true;
 }
+
+MemAddr os_sh_readOpen(Heap const *heap, MemAddr const *ptr) {
+	while (reading_possible(heap,(MemAddr) &ptr) == false) {
+		os_yield();
+	}
+	os_enterCriticalSection();
+	MemAddr addr = os_getFirstByteOfChunk(heap, (MemAddr) &(ptr));
+	setMapEntry(heap, addr, (os_getMapEntry(heap,addr) +1));
+	os_leaveCriticalSection();
+	MemAddr forreturn = (MemAddr) &ptr;
+	return forreturn;
+}
+
 
 bool writing_possible(Heap const *heap, MemAddr addr) {
 	ProcessID id = getOwnerOfChunk(heap, addr);
@@ -330,38 +335,39 @@ bool writing_possible(Heap const *heap, MemAddr addr) {
 }
 
 MemAddr os_sh_writeOpen(Heap const *heap, MemAddr const *ptr) {
-	while (writing_possible(heap,&ptr) == false) {
+	while (writing_possible(heap,(MemAddr) &ptr) == false) {
 		os_yield();
 	}
 	os_enterCriticalSection();
-	MemAddr addr = os_getFirstByteOfChunk(heap, &ptr);
+	MemAddr addr = os_getFirstByteOfChunk(heap, (MemAddr) &ptr);
 	setMapEntry(heap, addr, 0b1001);
 	os_leaveCriticalSection();
-	return &addr;
+	MemAddr forreturn = (MemAddr) &addr;
+	return forreturn;
 }
 
 void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length) {
-	ProcessID id = getOwnerOfChunk(heap, &ptr);
+	ProcessID id = getOwnerOfChunk(heap, (MemAddr) &ptr);
 	MemAddr check = os_sh_writeOpen(heap, ptr);
 	if ((id == 0b1001)) {
 		for (uint16_t i = (0 + offset); i < offset + length; i++) {
-			MemValue wert = intHeap.driver->read(dataSrc + i);
-			intHeap.driver.write(check + i,wert);
+			MemValue wert = heap->driver->read(dataSrc + i);
+			heap->driver->write(check + i,wert);
 		}
-		os_sh_close(heap, &ptr);
+		os_sh_close(heap, (MemAddr) &ptr);
 	}
 }
 
 void os_sh_read(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue *dataDest, uint16_t length) {
-	ProcessID id = getOwnerOfChunk(heap,&ptr);
+	ProcessID id = getOwnerOfChunk(heap,(MemAddr) &ptr);
 	MemAddr check = os_sh_readOpen(heap, ptr);
 	if ((id | 0b0111) == 0b1111 && id != 0xF && id != 0b1001) {
 		for (uint16_t i = (0 + offset); i < offset + length; i++) {
 			MemValue wert = heap->driver->read(check + i);
-			intHeap.driver->write(dataDest + i, wert);
+			heap->driver->write(dataDest + i, wert);
 		}
 		os_enterCriticalSection();
-		MemAddr end = os_getFirstByteOfChunk(heap, &ptr);
+		MemAddr end = os_getFirstByteOfChunk(heap, (MemAddr) &ptr);
 		setMapEntry(heap, end, os_getMapEntry(heap, end) - 1);
 		os_leaveCriticalSection();
 	}

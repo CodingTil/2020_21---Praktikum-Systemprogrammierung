@@ -189,7 +189,7 @@ void pqueue_append(ProcessQueue *queue, ProcessID pid) {
 		queue->data[0] = pid;
 		queue->head = 0;
 	} else {
-		queue->data[queue->head + 1] = pid
+		queue->data[queue->head + 1] = pid;
 		queue->head++;
 	}
 
@@ -232,12 +232,12 @@ ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
 			if (schedulingInfo.remainingts[chosen] == 0) {
 				pqueue_dropFirst(&(schedulingInfo.queues[i]));
 				if (i < 3) {
-					pqueue_append(&(schedulingInfo.queues[i+1]));
+					pqueue_append(&(schedulingInfo.queues[i+1]), chosen);
 					schedulingInfo.remainingts[chosen] = MLFQ_getDefaultTimeslice(i+1);
 				} else {
 					//process remains in class 4 if it still needs processing time
 					if(processes[chosen].state == OS_PS_READY) {
-						pqueue_append(&(schedulingInfo.queues[3]));
+						pqueue_append(&(schedulingInfo.queues[3]),chosen);
 						schedulingInfo.remainingts[chosen] = MLFQ_getDefaultTimeslice(3);
 					}
 				}
@@ -247,9 +247,9 @@ ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
 			set them ready to guarantee that blocked process are only ignored once -->
 			available next scheduling
 			*/
-			for (int j = 0; j < sizeof(processes); j++) {
+			for (int j = 0; j < sizeof(&processes); j++) {
 				if (processes[j].state == OS_PS_BLOCKED) {
-					processes[j].state = OS_PS_READY;
+					os_getProcessSlot(j)->state = OS_PS_READY;
 				}
 			}
 			return chosen;
@@ -267,11 +267,11 @@ Process Queue in each Queue
 void order_blocked_processes() {
 	for (int i = 0; i < 4; i++) {
 		ProcessID check = pqueue_hasNext(&(schedulingInfo.queues[i]));
-		if (os_getProcessSlot(check) == OS_PS_BLOCKED) {
+		if ((uint16_t) os_getProcessSlot(check) == OS_PS_BLOCKED) {
 			pqueue_dropFirst(&(schedulingInfo.queues[i]));
 			pqueue_append(&(schedulingInfo.queues[i]),check);
 		}
-		while(pqueue_hasNext(&(schedulingInfo.queues[i]) == OS_PS_BLOCKED && check != pqueue_hasNext(&(schedulingInfo.queues[i])) {
+		while(pqueue_hasNext(&(schedulingInfo.queues[i])) == OS_PS_BLOCKED && check != pqueue_hasNext(&(schedulingInfo.queues[i]))) {
 			pqueue_dropFirst(&(schedulingInfo.queues[i]));
 			pqueue_append(&(schedulingInfo.queues[i]),check);
 		}
@@ -282,7 +282,7 @@ void MLFQ_removePID(ProcessID pid) {
 	for (int i = 0; i < 4; i++) {
 		for (uint8_t q = 0; q < MAX_NUMBER_OF_PROCESSES; q++) {
 			if (schedulingInfo.queues[i].data[q] == pid) {
-				schedulingInfo.queues[i].data[q] == 0;	
+				schedulingInfo.queues[i].data[q] = 0;	
 			}
 		}
 	}
@@ -293,5 +293,5 @@ uint8_t MLFQ_getDefaultTimeslice(uint8_t queueID) {
 }
 
 uint8_t MLFQ_MapToQueue(Priority prio) {
-	return (prio >> 6)
+	return (prio >> 6);
 }
