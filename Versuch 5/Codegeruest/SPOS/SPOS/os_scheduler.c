@@ -91,6 +91,7 @@ ISR(TIMER2_COMPA_vect) {
 	if (os_processes[oldProc].state == OS_PS_BLOCKED) os_processes[oldProc].state = OS_PS_READY;
 	
 	//lcd_writeDec(currentProc);
+	//delayMs(50);
 		
 	os_processes[currentProc].state = OS_PS_RUNNING;
 	

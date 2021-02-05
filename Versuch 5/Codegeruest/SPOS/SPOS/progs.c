@@ -1,328 +1,181 @@
 //-------------------------------------------------
-//          TestSuite: Multilevel-Feedback-Queue
+//          TestSuite: Stability Shared external
 //-------------------------------------------------
 
-#include "os_core.h"
 #include "lcd.h"
 #include "util.h"
+#include "os_core.h"
 #include "os_scheduler.h"
 #include "os_memory.h"
-#include "os_scheduling_strategies.h"
-#include "os_input.h"
+
 #include <avr/interrupt.h>
-#include <util/delay.h>
+#include <string.h>
 
-#define MAX_STEPS 64
-#define NUMBER_OF_QUEUES 4
-uint8_t capture[MAX_STEPS];
-uint8_t i = 0;
+#define DELAY 100
+#define DRIVER extHeap
 
-ISR(TIMER2_COMPA_vect);
+/* Forward declarations */
+void writeChar(char c);
+void makeCheck(uint16_t size, MemValue pat);
+void myRelocate(uint16_t newsz);
 
-// Array containing the correct output values for all four scheduling strategies.
-const uint8_t scheduling[MAX_STEPS] PROGMEM  =  {
-	1, 2, 3, 4, 3, 20, 4, 4, 2, 3, 3, 4, 5, 5, 70, 4, 7, 4, 40, 2, 2, 2, 2, 6, 5, 1, 1, 1, 1, 1, 1, 1,
-	1, 4, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-};
 
-void printAndCheck(uint8_t page) {
-	// Print captured schedule
-	lcd_clear();
-	for (i = (page * 32); i < (page * 32) + 32; i++) {
-		// Print corresponding alphabetic character if yielded
-		if (capture[i] >= 10) {
-			lcd_writeChar('a' + (capture[i] / 10) - 1);
-			} else {
-			lcd_writeDec(capture[i]);
-		}
-	}
+unsigned char pos = 16;
 
-	// Check captured schedule
-	for (i = (page * 32); i < (page * 32) + 32; i++) {
-		if (capture[i] != pgm_read_byte(&scheduling[i])) {
-			// Move cursor
-			lcd_goto((i > 16 + page * 32) + 1, (i % 16) + 1);
-			// Show cursor without underlining the position
-			lcd_command((LCD_SHOW_CURSOR & ~(1 << 1)) | LCD_DISPLAY_ON);
-			while (1) {}
-		}
-		if (i == (page * 32) + 31) {
-			_delay_ms(2000);
-			lcd_clear();
-			lcd_writeProgString(PSTR("OK"));
-		}
-	}
+//! This program prints the current time in the first line
+PROGRAM(4, AUTOSTART) {
+    for (;;) {
+        os_enterCriticalSection();
+        lcd_line1();
+        lcd_writeProgString(PSTR("Time: ")); // +6
+        uint16_t const msecs = (os_coarseSystemTime * 33 / 10) % 1000;
+        uint16_t const secs = os_coarseSystemTime / 300;
+        uint16_t const mins = secs / 100;
+        if (mins < 100) {
+            lcd_writeDec((secs / 60) % 100); // +2
+            lcd_writeChar('m'); // +1
+            lcd_writeChar(' '); // +1
+            lcd_writeDec(secs % 60); // +2
+            lcd_writeChar('.'); // +1
+            lcd_writeDec(msecs / 100); // +2
+            lcd_writeChar('s'); // +1
+            lcd_writeChar(' '); // +1
+        } else {
+            lcd_writeProgString(PSTR("> 100 min"));
+        }
+        lcd_goto(2, pos + 1);
+        os_leaveCriticalSection();
+        delayMs(100);
+    }
+}
 
-	_delay_ms(2000);
+static char PROGMEM const spaces16[] = "                ";
+
+//! Write a character to the correct position in the second line after the pipe
+void writeChar(char c) {
+    os_enterCriticalSection();
+    if (++pos > 16) {
+        pos = 5;
+        lcd_line2();
+        lcd_goto(2, pos);
+        lcd_writeChar('|');
+        pos++;
+        lcd_writeProgString(spaces16 + 5);
+    }
+    lcd_goto(2, pos);
+    lcd_writeChar(c);
+    os_leaveCriticalSection();
+}
+
+MemAddr sh;
+uint16_t sz;
+
+//! Main test function
+void makeCheck(uint16_t size, MemValue pat) {
+    // Allocate private memory and read in the data of the shared memory
+    MemAddr const priv = os_malloc(intHeap, size);
+    os_sh_read(DRIVER, &sh, 0, (uint8_t*)priv, size);
+
+    // Test if only one pattern is present throughout the memory chunk.
+    MemValue const check = intHeap->driver->read(priv);
+    MemAddr p;
+    unsigned char tmp;
+    for (p = priv; p < priv + size; p++) {
+        tmp = intHeap->driver->read(p);
+        if (tmp != check) {
+            os_error("Write was interleaved");
+        }
+        intHeap->driver->write(p, pat);
+    }
+
+    // Write private memory (now with new pattern) back to shared and free the private one
+    os_sh_write(DRIVER, &sh, 0, (uint8_t*)priv, size);
+    os_free(intHeap, priv);
+}
+
+//! Function for reallocation of shared memory
+void myRelocate(uint16_t newsz) {
+
+    // Allocate new shared memory and write zeros to it
+    MemAddr newsh = os_sh_malloc(DRIVER, newsz);
+    // Important because our programs expect all cells to be the same
+    MemAddr i;
+    for (i = 0; i < sz; i++) {
+        DRIVER->driver->write(newsh + i, 0);
+    }
+
+    // Swap newly allocated shared memory with public shared memory
+    os_enterCriticalSection();
+    sh ^= newsh;
+    newsh ^= sh;
+    sh ^= newsh;
+    sz = newsz;
+    os_leaveCriticalSection();
+
+    // Now free the old shared memory
+    os_sh_free(DRIVER, &newsh);
 }
 
 
-void performTest() {
-	lcd_writeProgString(PSTR("Testing MLFQ"));
-	os_setSchedulingStrategy(OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE);
-	_delay_ms(2000);
-
-	// Perform scheduling test.
-	// Save the id of the running process and call the scheduler.
-	i = 0;
-	uint8_t runtime = 0;
-	while (i < MAX_STEPS) {
-		runtime++;
-
-		if (runtime == 10) {
-			// Check if process 5 is really program 4
-			if (os_getProcessSlot(4)->progID != 4) {
-				os_error("Program 4 not startet in slot 4.");
-				while (1);
-			}
-			os_kill(4);
-
-
-			// Process with program id 1 is still running, so we should be able to spawn at least 6 more (wrt. idle process)
-			uint8_t procs_num = MAX_NUMBER_OF_PROCESSES - 2;
-			uint8_t procs[procs_num];
-			uint8_t procs_progid = 2;
-
-			// Check if all processes were removed or are going to be (if that's implemented in os_exec)
-			uint8_t pid = INVALID_PROCESS;
-			for (uint8_t i = 0; i < procs_num; i++) {
-				pid = os_exec(procs_progid, DEFAULT_PRIORITY);
-				if (pid == INVALID_PROCESS) {
-					os_error("Could not exec process");
-					} else {
-					procs[i] = pid;
-				}
-			}
-
-			// Check program id, number of processes in queues and process state
-			uint8_t count_all = 0;
-			uint8_t count_valid = 0;
-			
-			for(uint8_t i = 0; i < NUMBER_OF_QUEUES; i++){
-				
-				ProcessQueue* queue = MLFQ_getQueue(i);
-				
-				if(!pqueue_hasNext(queue))
-				continue;
-				
-				ProcessID first = pqueue_getFirst(queue);
-
-				
-				do {
-					ProcessID pid = pqueue_getFirst(queue);
-					Process* proc = os_getProcessSlot(pid);
-
-					if ((proc->progID == procs_progid && proc->state == OS_PS_READY) || (proc->progID == os_getCurrentProc()) || (proc->progID == 0)) {
-						count_valid++;
-					}
-
-					count_all++;
-					pqueue_dropFirst(queue);
-					pqueue_append(queue, pid);
-				} while (pqueue_getFirst(queue) != first);
-				
-			}
-
-			if (count_all != count_valid || count_valid < procs_num + 1) {
-				os_error("Queue incorrect");
-			}
-
-			bool killed = false;
-			for (uint8_t i = 0; i < procs_num; i++) {
-				killed = os_kill(procs[i]);
-				if (!killed) {
-					os_error("Could not kill process");
-				}
-			}
-
-		}
-
-		capture[i++] = 1;
-		TIMER2_COMPA_vect();
-	}
-
-	printAndCheck(0);
-	printAndCheck(1);
-	// SUCCESS
-	lcd_clear();
-	lcd_writeProgString(PSTR("ALL TESTS PASSED"));
-	lcd_line2();
-	lcd_writeProgString(PSTR(" PLEASE CONFIRM!"));
-	os_waitForInput();
-	os_waitForNoInput();
-	lcd_clear();
-	lcd_writeProgString(PSTR("WAITING FOR"));
-	lcd_line2();
-	lcd_writeProgString(PSTR("TERMINATION"));
-	delayMs(1000);
-}
-
-
+//! Entry program that creates several instances of the test program
+//  and checks for successful mutual exclusions
 PROGRAM(1, AUTOSTART) {
-	// Disable scheduler-timer
-	cbi(TCCR2B, CS22);
-	cbi(TCCR2B, CS21);
-	cbi(TCCR2B, CS20);
+    uint8_t counter = 4;
 
-	os_getProcessSlot(os_getCurrentProc())->priority = 2;
+    // Allocate shared memory and write to it
+    sz = os_getUseSize(intHeap) / counter;
+    sh = os_sh_malloc(DRIVER, sz);
+    MemAddr i;
+    for (i = 0; i < sz; i++) {
+        DRIVER->driver->write(sh + i, 0xFF);
+    }
 
-	os_exec(2, 0b11000000);
-	os_exec(3, 0b10000000);
+    // Start checking processes
+    while (--counter) {
+        os_exec(2, 10);
+    }
 
-	// Start test cycle
-	performTest();
+    // Do iteration printout
+    MemValue start;
+    MemValue end;
+    uint16_t writeItrs = 0;
+    for (;;) {
+        // Read from shared memory to test if a writing operation is in progress by an other process
+        // If writing to shared memory uses critical section as locks this will never be the case
+        cli();
+        start = DRIVER->driver->read(sh);
+        end = DRIVER->driver->read(sh + sz - 1);
+        sei();
+        if (start != end) {
+            writeItrs++;
+            cli();
+            lcd_goto(2, 1);
+            lcd_writeProgString(spaces16 + (16 - 4));
+            lcd_goto(2, 1);
+            lcd_writeDec(writeItrs);
+            sei();
+            Time const now = getSystemTime(); // Granularity: 0.1/8 ms
+            while (now == getSystemTime()) {
+                os_yield();
+            }
+        }
+        os_yield();
+    }
 }
 
+
+/*!
+ * Program that writes a pattern to the shared memory region and reallocates it
+ * using a newly introduced function. Furthermore, it checks whether the pattern
+ * in shared memory is consistent.
+ */
 PROGRAM(2, DONTSTART) {
-	uint8_t runtime = 0;
-
-	// Perform scheduling test
-	while (i < MAX_STEPS) {
-		runtime++;
-		//exec
-		// -
-
-		//yield
-		if (runtime == 2) {
-			capture[i++] = 20;
-			os_yield();
-			runtime++;
-		}
-
-		capture[i++] = 2;
-
-		//termination
-		if (runtime == 7) {
-			break;
-		}
-		TIMER2_COMPA_vect();
-	}
+	for (;;) {
+        uint8_t k = (TCNT0 % 40);
+        while (k--) {
+            makeCheck(sz, os_getCurrentProc());
+        }
+        myRelocate(sz);
+        writeChar(os_getCurrentProc() + '0');
+    }
 }
-
-PROGRAM(3, DONTSTART) {
-	uint8_t runtime = 0;
-
-	// Perform scheduling test
-	while (i < MAX_STEPS) {
-		runtime++;
-		//exec
-		if (runtime == 1) {
-			os_exec(4, 0b11000000);
-		}
-
-		//yield
-		// -
-
-		capture[i++] = 3;
-
-		//termination
-		if (runtime == 4) {
-			break;
-		}
-		TIMER2_COMPA_vect();
-	}
-}
-
-
-
-PROGRAM(4, DONTSTART) {
-	uint8_t runtime = 0;
-
-	// Perform scheduling test
-	while (i < MAX_STEPS) {
-		runtime++;
-		//exec
-		if (runtime == 4) {
-			os_exec(5, 0b10000000);
-			os_exec(6, 0b01000000);
-		}
-
-		//yield
-		if (runtime == 7) {
-			capture[i++] = 40;
-			os_yield();
-			runtime++;
-		}
-
-		capture[i++] = 4;
-
-		//termination
-		// -
-
-		TIMER2_COMPA_vect();
-	}
-}
-
-PROGRAM(5, DONTSTART) {
-	uint8_t runtime = 0;
-
-	// Perform scheduling test
-	while (i < MAX_STEPS) {
-		runtime++;
-		//exec
-		if (runtime == 1) {
-			os_exec(7, 0b10000000);
-		}
-
-		//yield
-		// -
-
-		capture[i++] = 5;
-
-		//termination
-		if (runtime == 3) {
-			break;
-		}
-		TIMER2_COMPA_vect();
-	}
-}
-
-PROGRAM(6, DONTSTART) {
-	uint8_t runtime = 0;
-
-	// Perform scheduling test
-	while (i < MAX_STEPS) {
-		runtime++;
-		//exec
-		// -
-
-		//yield
-		// -
-
-		capture[i++] = 6;
-
-		//termination
-		if (runtime == 1) {
-			break;
-		}
-		TIMER2_COMPA_vect();
-	}
-}
-
-PROGRAM(7, DONTSTART) {
-	uint8_t runtime = 0;
-
-	// Perform scheduling test
-	while (i < MAX_STEPS) {
-		runtime++;
-		//exec
-		// -
-
-		//yield
-		if (runtime == 1) {
-			capture[i++] = 70;
-			os_yield();
-			runtime++;
-		}
-
-		capture[i++] = 7;
-
-		//termination
-		if (runtime == 2) {
-			break;
-		}
-		TIMER2_COMPA_vect();
-	}
-}
-
-

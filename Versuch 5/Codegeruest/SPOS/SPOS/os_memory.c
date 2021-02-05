@@ -139,13 +139,13 @@ bool sh_is_writing(Heap const *heap, MemAddr addr) {
 
 bool sh_is_reading(Heap const *heap, MemAddr addr) {
 	if(sh_is_writing(heap, addr)) return false;
-	if(getOwnerOfChunk(heap, addr) == SH_ALLOC || getOwnerOfChunk(heap, addr) == 0xF) return false;
+	if(getOwnerOfChunk(heap, addr) == SH_ALLOC) return false;
 	return true;
 }
 
 uint8_t sh_get_reading(Heap const *heap, MemAddr addr) {
 	if(!sh_is_reading(heap, addr)) return 0;
-	return getOwnerOfChunk(heap, addr) & (!SH_ALLOC);
+	return getOwnerOfChunk(heap, addr) & (~SH_ALLOC);
 }
 
 void sh_add_reading(Heap const *heap, MemAddr addr) {
@@ -159,13 +159,13 @@ void sh_remove_reading(Heap const *heap, MemAddr addr) {
 }
 
 bool sh_is_open(Heap const *heap, MemAddr addr) {
-	return sh_is_reading(heap, addr) && sh_is_writing(heap, addr);
+	return sh_is_reading(heap, addr) || sh_is_writing(heap, addr);
 }
 
 void os_free(Heap* heap, MemAddr address) {
 	if(sh_is_shared_memory(heap, address)) {
 		os_error("Memory is shared memory.");
-		}else {
+	}else {
 		os_freeOwnerRestricted(heap, address, os_getCurrentProc());
 	}
 }
@@ -317,6 +317,9 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 void os_sh_close (Heap const *heap, MemAddr addr) {
 	os_enterCriticalSection();
 	MemAddr chunk = os_getFirstByteOfChunk(heap, addr);
+	while (sh_is_open(heap, chunk)) {
+		os_yield();
+	}
 	setMapEntry(heap, chunk, SH_ALLOC);
 	os_leaveCriticalSection();
 }
@@ -346,14 +349,15 @@ void os_sh_free(Heap* heap, MemAddr *addr) {
 
 void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length) {
 	//Only works with this first?!?!?!?
-	uint16_t sh_chunk_size = os_getChunkSize(heap, (MemAddr) *ptr);
+	MemAddr sh_addr = os_sh_writeOpen(heap, ptr);
+		
+	if(sh_addr == 0) return;
+
+	uint16_t sh_chunk_size = os_getChunkSize(heap, sh_addr);
 	if(!(sh_chunk_size >= length + offset)) {
 		os_error("Chunk sizes too small.");
 		return;
 	}
-	
-	MemAddr sh_addr = os_sh_writeOpen(heap, ptr);
-	if(sh_addr == 0) return;
 	
 	int i = 0;
 	
@@ -383,7 +387,7 @@ void os_sh_read(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue 
 		intHeap->driver->write((MemAddr) dataDest + i, heap->driver->read(sh_addr + offset + i));
 		i++;
 	}while(i < length);
-	
+		
 	sh_remove_reading(heap, sh_addr);
 }
 
@@ -391,7 +395,7 @@ MemAddr os_sh_readOpen (Heap const *heap, MemAddr const *ptr) {
 	os_enterCriticalSection();
 	MemAddr addr = os_getFirstByteOfChunk(heap, *ptr);
 	if(!(addr >= heap->use_start && addr < heap->use_start + heap->use_size)) {
-		//os_error("Out of bounds.");
+		os_error("Out of bounds."); //
 		os_leaveCriticalSection();
 		return 0;
 	}
