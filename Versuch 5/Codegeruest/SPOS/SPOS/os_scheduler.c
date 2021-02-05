@@ -77,15 +77,21 @@ ISR(TIMER2_COMPA_vect) {
 		os_processes[currentProc].state = OS_PS_READY;
 	}
 	
-	switch(currentSchedStrat) {
-		case OS_SS_EVEN: currentProc = os_Scheduler_Even(os_processes, currentProc); break;
-		case OS_SS_RANDOM: currentProc = os_Scheduler_Random(os_processes, currentProc); break;
-		case OS_SS_ROUND_ROBIN: currentProc = os_Scheduler_RoundRobin(os_processes, currentProc); break;
-		case OS_SS_INACTIVE_AGING: currentProc = os_Scheduler_InactiveAging(os_processes, currentProc); break;
-		case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
-		case OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE: currentProc = os_Scheduler_MLFQ(os_processes, currentProc); break;
+	while (1) {
+		switch(currentSchedStrat) {
+			case OS_SS_EVEN: currentProc = os_Scheduler_Even(os_processes, currentProc); break;
+			case OS_SS_RANDOM: currentProc = os_Scheduler_Random(os_processes, currentProc); break;
+			case OS_SS_ROUND_ROBIN: currentProc = os_Scheduler_RoundRobin(os_processes, currentProc); break;
+			case OS_SS_INACTIVE_AGING: currentProc = os_Scheduler_InactiveAging(os_processes, currentProc); break;
+			case OS_SS_RUN_TO_COMPLETION: currentProc = os_Scheduler_RunToCompletion(os_processes, currentProc); break;
+			case OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE: currentProc = os_Scheduler_MLFQ(os_processes, currentProc); break;
+		}
+		if (currentProc == 0 || os_processes[currentProc].state != OS_PS_BLOCKED) break;
+		os_processes[currentProc].state = OS_PS_READY;
 	}
 	
+	//lcd_writeDec(currentProc);
+		
 	os_processes[currentProc].state = OS_PS_RUNNING;
 	
 	if (os_processes[currentProc].checksum != os_getStackChecksum(currentProc)) {
@@ -440,20 +446,20 @@ void os_yield() {
 	
 	uint8_t csc_copy = criticalSectionCount;
 	
+	criticalSectionCount = 0;
+	
 	if (os_processes[currentProc].state != OS_PS_UNUSED) { // if the process was terminated it should not be marked as blocked for one iteration of the scheduler
 		os_processes[currentProc].state = OS_PS_BLOCKED;
 	}
 	
 	sbi(TIMSK2, OCIE2A);
-	
-	if (interrupts) {
-		sbi(SREG, 7);
-	}
 
-	TIMER2_COMPA_vect();
-	
+	sbi(SREG, 7);
+
+	TIMER2_COMPA_vect(); // if process has terminated then this will never return.
+		
 	// get global interrupt
-	interrupts = gbi(SREG, 7);
+	//interrupts = gbi(SREG, 7);
 		
 	// disable global interrupt
 	cbi(SREG, 7);
@@ -464,3 +470,20 @@ void os_yield() {
 		sbi(SREG, 7);
 	}
 }
+
+/*
+void os_yield() {
+	os_enterCriticalSection();
+	ProcessID oldProc = currentProc;
+	if(os_processes[oldProc].state == OS_PS_UNUSED) { // Terminierung
+		os_processes[oldProc].state = OS_PS_BLOCKED;
+		TIMER2_COMPA_vect();
+		os_processes[oldProc].state = OS_PS_UNUSED;
+		}else {
+		os_processes[oldProc].state = OS_PS_BLOCKED;
+		TIMER2_COMPA_vect();
+		os_processes[oldProc].state = OS_PS_READY;
+	}
+	os_leaveCriticalSection();
+}
+*/

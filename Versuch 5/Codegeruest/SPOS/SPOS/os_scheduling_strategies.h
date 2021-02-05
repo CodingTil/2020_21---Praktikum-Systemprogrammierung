@@ -68,6 +68,8 @@ void pqueue_dropFirst(ProcessQueue *queue);
 
 void pqueue_append(ProcessQueue *queue, ProcessID pid);
 
+void MLFQ_removePID(ProcessID pid);
+
 ProcessQueue* MLFQ_getQueue(uint8_t queueID);
 
 void os_initSchedulingInformation();

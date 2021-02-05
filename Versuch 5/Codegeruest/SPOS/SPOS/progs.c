@@ -1,6 +1,8 @@
 //-------------------------------------------------
-//          TestSuite: Realloc
+//          TestSuite: Shared Access
 //-------------------------------------------------
+
+#include <avr/interrupt.h>
 
 #include "lcd.h"
 #include "util.h"
@@ -8,516 +10,403 @@
 #include "os_scheduler.h"
 #include "os_memory.h"
 #include "os_input.h"
-#include "defines.h"
 
-#include <avr/interrupt.h>
-#include <stdlib.h>
-
-#define DELAY 400
-
-// Calculates the minimum of a and b
-#define MIN(a,b) ( (a)<(b) ? (a) : (b) )
-
-// Error printout
-#define error_onHeap(HEAP, MSG) \
-    if(HEAP == intHeap) \
-        os_error(MSG " on intHeap"); \
-    else \
-        os_error(MSG " on extHeap");\
-
-// Flag indicating if the internal realloc check is done
-bool volatile checkI = false;
-// Flag indicating if the external realloc check is done
-bool volatile checkE = false;
-// Flag indicating if the external realloc check discovered failures
-bool failI = false;
-// Flag indicating if the internal realloc check discovered failures
-bool failE = false;
-
-typedef struct {
-    MemAddr head; // First address of that chunk
-    size_t size;  // Size of chunk
-    bool dummy;   // 1 if this chunk is a dummy
-} Chunk;
-
-/*!
- * Returns the mapEntry of the use-address ptr
- * \param  *heap Heap on which the map is to be checked
- * \param   ptr  Use-address whose map-entry is requested
- * \return       Entry for that position (between 0x0 and 0xF)
- */
-uint8_t progs_getMapEntry(Heap* heap, MemAddr ptr) {
-    MemAddr relativeAddress = ptr - os_getUseStart(heap);
-    // If nibble is 1, the high nibble is responsible
-    uint8_t nibble = relativeAddress % 2 == 0 ? 1 : 0;
-
-    MemAddr mapEntryAddress = relativeAddress / 2;
-
-    MemValue fullEntry = heap->driver->read(os_getMapStart(heap) + mapEntryAddress);
-
-    if (nibble == 1) {
-        return fullEntry >> 4;
-    } else {
-        return fullEntry & 0x0F;
-    }
-}
-
-/*!
- * Returns the chunk-size of a chunk that starts at ptr. Only works for chunks
- * that were allocated as private memory by one of the processes.
- * \param  *heap Heap where the chunk is
- * \param   ptr  Address of the very first byte of that chunk
- * \return       Length of chunk in bytes
- */
-uint16_t progs_getChunkSize(Heap* heap, MemAddr ptr) {
-    uint16_t size;
-    MemValue owner;
-    owner = progs_getMapEntry(heap, ptr);
-    if (owner == 0 || owner >= MAX_NUMBER_OF_PROCESSES) {
-        return 0;
-    }
-    for (size = 1; progs_getMapEntry(heap, ptr + size) == 0xF; size++) {
-        // Nop
-    }
-    return size;
-}
-
-/*!
- * Writes a pattern to a certain chunk
- * \param  *heap   Heap on which this action is to be performed
- * \param  *c      Chunk to which the pattern is to be written
- * \param   pat    Pattern that is written. This byte gets repeatedly written
- *                 to the chunk until the whole chunk is filled with it.
- */
-void writePat(Heap* heap, Chunk* c, MemValue pat) {
-    size_t i;
-    for (i = 0; i < c->size; i++) {
-        heap->driver->write(c->head + i, pat);
-    }
-}
-
-/*!
- * Checks if a certain chunk contains a given pattern.
- * \param  *heap   On which heap the check is performed.
- * \param   c      Chunk that should contain the pattern
- * \param   pat    Pattern that should be found in that chunk
- * \return         1 if the pattern exists at that position, 0 otherwise
- */
-bool checkChunkPat(Heap* heap, Chunk* c, MemValue pat) {
-    size_t i;
-    for (i = 0; i < c->size; i++) {
-        if (heap->driver->read(c->head + i) != pat) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/*!
- * Checks if a certain area in the memory contains a given pattern.
- * \param  *heap   On which heap the check is performed.
- * \param   start  First address where the pattern starts
- * \param   length Length of the memory area that is to be checked
- * \param   pat    Pattern that should be found in that area
- * \return         1 if the pattern exists at that position, 0 otherwise
- */
-bool checkMemPat(Heap* heap, MemAddr start, MemAddr length, MemValue pat) {
-    size_t i;
-    for (i = 0; i < length; i++) {
-        if (heap->driver->read(start + i) != pat) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/*!
- * Allocates all chunks in the given chunk array, writes a pattern to each
- * chunk and deallocates all dummies.
- * \param  *heap   Heap on which this action is to be performed
- * \param  *chunks Array of chunks that are ot be allocated/freed
- * \param   count  Size of chunks-array
- */
-void massAlloc(Heap* heap, Chunk* chunks, size_t count) {
-    size_t i;
-
-    // Allocation phase
-    for (i = 0; i < count; i++) {
-        chunks[i].head = os_malloc(heap, chunks[i].size);
-        if (!chunks[i].head) {
-            error_onHeap(heap, "malloc failure");
-        }
-        writePat(heap, chunks + i, i);
-    }
-
-    // Free phase
-    for (i = 0; i < count; i++) {
-        if (chunks[i].dummy) {
-            os_free(heap, chunks[i].head);
-        }
-    }
-}
-
-/*!
- * Frees all non dummy chunks of the given chunk array.
- * \param  *heap   Heap on which this action is to be performed
- * \param  *chunks Array of chunks that are ot be allocated/freed
- * \param   count  Size of chunks-array
- */
-void massFree(Heap* heap, Chunk* chunks, size_t count) {
-    size_t i;
-    for (i = 0; i < count; i++) {
-        if (!chunks[i].dummy) {
-            os_free(heap, chunks[i].head);
-        }
-    }
-}
-
-/*!
- * Main test routine
- * In this routine, several chunks are allocated and a pattern is written to
- * them. Then those chunks labeled as dummies are freed again. After that
- * the middle chunk (i.e. with 7 chunks the 3rd chunk) is reallocated to a
- * new size. That size is the sum of the sizes of all chunks labeled as
- * realloc candidates in the reallocBits bitmap.
- * After that reallocation it is checked if the map is correctly representing
- * that reallocation and if the other chunks were not damaged in the process.
- *
- * \param  *heap        Heap to test.
- * \param   dummies     Dummies are those chunks that get freed after all
- *                      chunks were allocated. This bitmap defines, which
- *                      chunk is a dummy. The LSB defines whether the last
- *                      allocated chunk is freed and the MSB defines whether
- *                      the first allocated chunk is freed, etc.
- * \param   reallocBits This bitmap is set up like dummies. Except in this map
- *                      it is defined whose chunks are going to be merged by
- *                      the reallocation.
- * \param   random      If this byte is 0xFF, the new size of the reallocation-
- *                      chunk is calculated deterministically. If it is not
- *                      0xFF, the reallocation-chunk is additionally randomly
- *                      increased for their reallocation. That random value is
- *                      at least 1 and smaller than the size of the chunk with
- *                      index "random".
- * \param   destination This bitmap defines in which chunk the resulting
- *                      reallocated chunk must be located.
- */
-bool makeTest(Heap* heap, uint8_t dummies, uint8_t reallocBits,
-              uint8_t random, uint8_t destination) {
-
-
-    os_setAllocationStrategy(heap, OS_MEM_FIRST);
-
-    size_t i;
-    size_t useSize = os_getUseSize(heap);
-    if(useSize > 4096) useSize = 4096;
-
-    // This macro returns 1 for all chunks that are labeled as dummy chunks
-#define IS_DUMMY(i)               ((dummies >> (6-i)) & 1)
-    // This macro returns 1 for all chunks that are labeled as reallocation candidates
-#define IS_REALLOC_CANDIDATE(i)   ((reallocBits >> (6-i)) & 1)
-    // This macro returns 1 for all chunks that are still untouched after their initial allocation
-#define IS_PERSISTENT(i)          (!(IS_DUMMY(i) || IS_REALLOC_CANDIDATE(i)))
-
-
-    // 1. Preparation of chunks
-
-    /*
-     * In this chunk array, 7 chunks will be prepared. Chunks 0,2,3,4 have semi-
-     * random sizes, the other sizes are fixed. Chunk 6 has a size as big as the
-     * whole use-size. This is only temporary, as its size will be corrected
-     * below
-     */
-    Chunk chunks[] = {
-        {.size = rand() % (useSize / 6) + useSize / 6/* useSize/6 <= size < 2*useSize/6 */, .dummy = IS_DUMMY(0) },
-        {.size = 1, .dummy = IS_DUMMY(1) },
-        {.size = rand() % (useSize / 6) + 1   /* 1 <= size <= useSize/6 */, .dummy = IS_DUMMY(2) },
-        {.size = rand() % (useSize / 6) + 1   /* 1 <= size <= useSize/6 */, .dummy = IS_DUMMY(3) },
-        {.size = rand() % (useSize / 6) + 1   /* 1 <= size <= useSize/6 */, .dummy = IS_DUMMY(4) },
-        {.size = 1, .dummy = IS_DUMMY(5) },
-        {.size = useSize, .dummy = IS_DUMMY(6) }
-    };
-
-    // Now resize last chunk so that the sum of the chunk sizes equals the total use size.
-    size_t const cSize = sizeof(chunks) / sizeof(*chunks); // Size of chunks[]
-    size_t const reallocIndex = cSize / 2; // Index of block we want to reallocate
-
-    for (i = 0; i < cSize - 1; i++) {
-        chunks[cSize - 1].size -= chunks[i].size;
-    }
-
-
-    // 2. Allocation of chunks
-
-    // Allocate all prepared chunks. Then a pattern is written to the chunks and
-    // those chunks flagged as dummies are freed
-    massAlloc(heap, chunks, cSize);
-
-
-    // 3. Reallocation of middle chunk
-
-    size_t newSize = 0;
-    // The new size is calculated as the sizes of all those chunks that are
-    // labeled as realloc candidates
-    for (i = 0; i < cSize; i++) {
-        // Add chunk size to new size if reallocate bit is 1
-        if (IS_REALLOC_CANDIDATE(i)) {
-            newSize += chunks[i].size;
-        }
-    }
-    // Add some random size to new size
-    if (random != 0xFF) {
-        size_t add = rand() % (chunks[random].size);
-        if (add < 1) {
-            add = 1;
-        }
-        // 1 <= add < chunks[random].size
-        newSize += add;
-    }
-
-    // Reallocate the chunk with index reallocIndex to newSize
-    Chunk const old = chunks[reallocIndex];
-    chunks[reallocIndex].size = newSize;
-    chunks[reallocIndex].head = os_realloc(heap, chunks[reallocIndex].head, newSize);
-
-
-    // 4. Check if os_realloc returns a valid address
-
-    // Check if os_realloc found a valid position for the new chunk
-    if (chunks[reallocIndex].head == 0) {
-        error_onHeap(heap, "realloc allocation fail");
-    }
-
-
-    // 5. Check if memcpy was successful
-
-    // Confirm the written pattern is present in the reallocated block (memcpy)
-    if (!checkMemPat(heap, chunks[reallocIndex].head, MIN(old.size, newSize), reallocIndex)) {
-        error_onHeap(heap, "realloc memcpy fail");
-    }
-
-
-    // 6. Check if the map was adapted correctly
-
-    // Compute the actual size of the reallocated chunk by iterating the map
-    if (progs_getChunkSize(heap, chunks[reallocIndex].head) != newSize) {
-        error_onHeap(heap, "realloc map adapt. fail");
-    }
-
-    // Compute the size of the untouched chunks
-    for (i = 0; i < cSize; i++) {
-        if (IS_PERSISTENT(i)) {
-            if (progs_getChunkSize(heap, chunks[i].head) != chunks[i].size) {
-                error_onHeap(heap, "realloc map damage");
-            }
-        }
-    }
-
-
-    // 7. Check if the new chunk overlaps with other chunks
-
-    // Rewrite the pattern in the reallocated chunk.
-    writePat(heap, chunks + reallocIndex, reallocIndex);
-
-    // Check all patterns of non dummy chunks.
-    // Therefore checking if reallocation interfered with any other chunk.
-    for (i = 0; i < cSize; i++) {
-        if (!chunks[i].dummy && !checkChunkPat(heap, chunks + i, i)) {
-            error_onHeap(heap, "realloc pattern broken");
-        }
-    }
-
-
-    // 8. Check if the chunk is at the correct position
-
-    bool found = false;
-    for (i = 0; !found && i < cSize; i++) {
-        if ((1 << (6 - i)) & destination) {
-            if (i == reallocIndex) {
-                found = (chunks[reallocIndex].head == old.head);
-            } else {
-                found = (chunks[reallocIndex].head == chunks[i].head);
-            }
-        }
-    }
-
-
-    // 9. Clean up
-
-    // Free remaining chunks
-    massFree(heap, chunks, cSize);
-
-    return found;
-
-
-#undef  IS_PERSISTENT
-#undef  IS_REALLOC_CANDIDATE
-#undef  IS_DUMMY
-}
-
-/*!
- * Print test message.
- * \param   i    Index of test
- * \param  *msg  Name of test
- * \param  *heap Heap on which the test is performed
- */
-void test(char i, char const* msg, Heap* heap) {
-
-    static char PROGMEM const spaces16[] = "                ";
-    os_enterCriticalSection();
-    if (heap == intHeap) {
-        lcd_line1();
-        lcd_writeProgString(spaces16);
-        lcd_line1();
-        lcd_writeChar(i);
-        lcd_writeProgString(PSTR("i:"));
-    }
-    if (heap == extHeap) {
-        lcd_line2();
-        lcd_writeProgString(spaces16);
-        lcd_line2();
-        lcd_writeChar(i);
-        lcd_writeProgString(PSTR("e:"));
-    }
-    lcd_writeProgString(msg);
-    os_leaveCriticalSection();
-    delayMs(5 * DELAY);
-}
-
-/*!
- * If a reallocation test was successful, this prints "OK" in the correct line
- * \param  *heap Heap on which the test was successful
- */
-void ok(Heap* heap) {
-    os_enterCriticalSection();
-    if (heap == intHeap) {
-        lcd_goto(1, 15);
-    }
-    if (heap == extHeap) {
-        lcd_goto(2, 15);
-    }
-    lcd_writeProgString(PSTR("OK"));
-    os_leaveCriticalSection();
-    delayMs(5 * DELAY);
-}
-
-/*!
- * If a reallocation test fails, this function prints "FAIL" and labels the
- * whole test on that heap as failed.
- * \param  *heap Heap where the test failed
- */
-void fail(Heap* heap) {
-    os_enterCriticalSection();
-    if (heap == intHeap) {
-        lcd_goto(1, 13);
-        failI = true;
-    }
-    if (heap == extHeap) {
-        lcd_goto(2, 13);
-        failE = true;
-    }
-    lcd_writeProgString(PSTR("FAIL"));
-    os_leaveCriticalSection();
-    delayMs(5 * DELAY);
-}
-
-/*!
- * Runs the tests on one of the heaps.
- * \param  *heap Heap on which the tests are run.
- */
-void runTest(Heap* heap) {
-    // Expand by the chunk to the right.
-    // Use free memory to the right.
-    test('1', PSTR("R.res."), heap);
-    if (makeTest(heap, 0b1110101, 0b0001100, 0xFF, 0b0001000)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "R.res. fail");
-        fail(heap);
-    }
-
-    // Expand by the chunk to the left
-    // Use free memory to the left or free and malloc.
-    test('2', PSTR("L.res."), heap);
-    if (makeTest(heap, 0b1010011, 0b0011000, 0xFF, 0b0010000)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "L.res. fail");
-        fail(heap);
-    }
-
-    // Force expansion by one chunk to the left.
-    test('3', PSTR("L.res.frc."), heap);
-    if (makeTest(heap, 0b0010000, 0b0011000, 0xFF, 0b0010000)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "L.res.frc. fail");
-        fail(heap);
-    }
-
-    // Expand by a bit more than the chunk to the right.
-    // Use free memory to the left and right or free and malloc.
-    test('4', PSTR("LR res."), heap);
-    if (makeTest(heap, 0b1010101, 0b0001100, 2, 0b0010000)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "LR res. fail");
-        fail(heap);
-    }
-
-    // Expand by a bit more than the free memory to the right.
-    // Force expansion to the left and right.
-    test('5', PSTR("LR res.frc."), heap);
-    if (makeTest(heap, 0b0010100, 0b0001100, 2, 0b0010000)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "LR res.frc. fail");
-        fail(heap);
-    }
-
-    // Expand chunk to roughly double size without having free memory left or right.
-    // Thereby forcing to move (free and malloc) the chunk.
-    test('6', PSTR("Move"), heap);
-    if (makeTest(heap, 0b1100001, 0b1000000, 0xFF, 0b1000001)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "Move fail");
-        fail(heap);
-    }
-
-    // Shrink chunk to randomly chosen smaller size.
-    test('7', PSTR("Shrink"), heap);
-    if (makeTest(heap, 0b1110111, 0b0000000, 3, 0b0001000)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "Shrink fail");
-        fail(heap);
-    }
-
-    // Keep the chunk as is.
-    test('8', PSTR("Keep"), heap);
-    if (makeTest(heap, 0b1110111, 0b0001000, 0xFF, 0b0001000)) {
-        ok(heap);
-    } else {
-        error_onHeap(heap, "Keep fail");
-        fail(heap);
-    }
-}
-
+#define NUM_MAL 5
+#define SIZE 10
+
+#if (NUM_MAL * SIZE > 255)
+#error Reduce SIZE or NUM_MAL
+#endif
+#if (SIZE < 4)
+#error Chunks must at least be 4 Bytes
+#endif
+
+#define DELAY 100
+#define DRIVER intHeap
+
+uint8_t errors = 0;
+MemAddr shBlock;
+MemAddr shBlockYield;
+volatile uint8_t state = 0;
+volatile uint8_t mode = 0;
 
 PROGRAM(1, AUTOSTART) {
-    runTest(intHeap);
-    checkI = true;
-}
+	MemAddr allocs[NUM_MAL];
+	volatile int i, j;
+	MemAddr opBlock1, opBlock2;
 
-PROGRAM(2, AUTOSTART) {
-    runTest(extHeap);
-    checkE = true;
-}
+	// Allocate some shared memory
+	lcd_writeProgString(PSTR("1: Allocating..."));
+	delayMs(10 * DELAY);
+	for (i = 0; i < NUM_MAL; i++) {
+		lcd_clear();
+		lcd_writeDec(i);
+		allocs[i] = os_sh_malloc(DRIVER, 10);
 
-PROGRAM(3, AUTOSTART) {
-    while (!checkI || !checkE);
+		// Assure that the allocated memory chunks are pairwise distinct
+		bool different = true;
+		for (j = 0; different && j < i; j++) {
+			different = allocs[j] != allocs[i];
+		}
+		lcd_writeChar(' ');
+		if (different) {
+			lcd_writeProgString(PSTR("OK"));
+			} else {
+			errors++;
+			os_error("FAILURE");
+		}
+		delayMs(1 * DELAY);
+	}
+	lcd_clear();
 
-    if (!failE && !failI) {
+	// Test if locks can be opened and closed.
+	lcd_writeProgString(PSTR("2a: Accessing (open/close)..."));
+	delayMs(10 * DELAY);
+	for (i = 0; i < NUM_MAL; i++) {
+		lcd_clear();
+		lcd_writeDec(i);
+		lcd_writeChar(' ');
+		for (j = 0; j < SIZE; j++) {
+			MemAddr const p = allocs[i] + j;
+			os_sh_writeOpen(DRIVER, &p);
+			os_sh_close(DRIVER, p);
+			os_sh_readOpen(DRIVER, &p);
+			os_sh_close(DRIVER, p);
+		}
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(1 * DELAY);
+	}
+	lcd_clear();
+
+	// Test if locks can read on private memory
+	lcd_writeProgString(PSTR("2b: Read on private..."));
+	delayMs(10 * DELAY);
+	{
+		MemAddr privBlock = os_malloc(DRIVER, 10);
+		os_sh_readOpen(DRIVER, &privBlock);
+		os_free(DRIVER, privBlock);
+		delayMs(5 * DELAY);
+		lcd_writeProgString(PSTR("OK (if error)"));
+		delayMs(5 * DELAY);
+	}
+	lcd_clear();
+
+	// Test if locks can write on private memory
+	lcd_writeProgString(PSTR("2c: Write on private..."));
+	delayMs(10 * DELAY);
+	{
+		MemAddr privBlock = os_malloc(DRIVER, 10);
+		os_sh_writeOpen(DRIVER, &privBlock);
+		os_free(DRIVER, privBlock);
+		delayMs(5 * DELAY);
+		lcd_writeProgString(PSTR("OK (if error)"));
+		delayMs(5 * DELAY);
+	}
+	lcd_clear();
+
+	// Do some simple write operations
+	lcd_writeProgString(PSTR("3: Accessing (write)..."));
+	delayMs(10 * DELAY);
+	for (i = 0; i < NUM_MAL; i++) {
+		lcd_clear();
+		lcd_writeDec(i);
+		lcd_writeChar(' ');
+		for (j = 0; j < SIZE; j++) {
+			MemValue const a = i * SIZE + j;
+			MemAddr const p = allocs[i];
+			os_sh_write(DRIVER, &p, j, &a, 1);
+		}
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(1 * DELAY);
+	}
+	lcd_clear();
+
+	// Read the written pattern and test if it's still the same
+	lcd_writeProgString(PSTR("4: Accessing (read)..."));
+	delayMs(10 * DELAY);
+	for (i = 0; i < NUM_MAL; i++) {
+		lcd_clear();
+		lcd_writeDec(i);
+		lcd_writeChar(' ');
+		MemValue a;
+		for (j = 0; j < SIZE; j++) {
+			MemAddr const p = allocs[i];
+			a = (MemValue) - 1;
+			os_sh_read(DRIVER, &p, j, &a, 1);
+			if (a != i * SIZE + j) {
+				cli();
+				lcd_clear();
+				lcd_writeDec(i);
+				lcd_writeChar(' ');
+				lcd_writeProgString(PSTR("FAILURE @ "));
+				lcd_writeDec(j);
+				lcd_writeChar('/');
+				lcd_writeDec(SIZE);
+				errors++;
+				// Can't use os_error here since this is no static error message
+				while (os_getInput() != 0b1001);
+				os_waitForNoInput();
+				lcd_clear();
+				sei();
+			}
+		}
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(1 * DELAY);
+	}
+	lcd_clear();
+
+	// Now read past the end of the allocated memory to provoke an error
+	lcd_writeProgString(PSTR("5: Provoking viol. (read)..."));
+	delayMs(10 * DELAY);
+	{
+		lcd_clear();
+		lcd_writeChar('1');
+		lcd_writeChar(' ');
+		MemAddr const p = allocs[1] + 1;
+		uint32_t a;
+		os_sh_read(DRIVER, &p, SIZE - 3, (MemValue*)&a, 4);
+		delayMs(5 * DELAY);
+		lcd_writeProgString(PSTR("OK (if error)"));
+		delayMs(5 * DELAY);
+	}
+	lcd_clear();
+
+	// As above just with writing
+	lcd_writeProgString(PSTR("6: Provoking viol. (write)..."));
+	delayMs(10 * DELAY);
+	{
+		lcd_clear();
+		lcd_writeChar('1');
+		lcd_writeChar(' ');
+		MemAddr const p = allocs[1] + 2;
+		MemValue const a = 0xFF;
+		os_sh_write(DRIVER, &p, SIZE, &a, 1);
+		delayMs(5 * DELAY);
+		lcd_writeProgString(PSTR("OK (if error)"));
+		delayMs(5 * DELAY);
+	}
+	lcd_clear();
+
+	// Now check if the write operation was executed despite the access violation
+	lcd_writeProgString(PSTR("7: Checking..."));
+	delayMs(10 * DELAY);
+	{
+		MemAddr const p = allocs[2];
+		MemValue a = 0xBB;
+		os_sh_read(DRIVER, &p, 0, &a, 1);
+		delayMs(2 * DELAY);
+		if (a == 2 * SIZE + 0) {
+			lcd_clear();
+			lcd_writeProgString(PSTR("OK"));
+			} else {
+			errors++;
+			os_error("FAILURE @ Checking");
+		}
+		delayMs(10 * DELAY);
+	}
+	lcd_clear();
+
+	// Check parallel reading
+	lcd_writeProgString(PSTR("8: Multiple access..."));
+	delayMs(10 * DELAY);
+	{
+		shBlock = os_sh_malloc(DRIVER, 10);
+		if (shBlock == 0) {
+			errors++;
+			os_error("Not enough memory");
+		}
+		shBlockYield = os_sh_malloc(DRIVER, 10);
+		if (shBlockYield == 0) {
+			errors++;
+			os_error("Not enough memory");
+		}
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("readOpen Yield"));
+		delayMs(10 * DELAY);
+		ProcessID readOpenProc = os_exec(3, DEFAULT_PRIORITY);
+		delayMs(10 * DELAY);
+		os_kill(readOpenProc);
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("write/readOpen  Yield"));
+		mode = 0;
+		delayMs(10 * DELAY);
+		ProcessID writeReadOpenProc = os_exec(4, DEFAULT_PRIORITY);
+		delayMs(10 * DELAY);
+		os_kill(writeReadOpenProc);
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("read/writeOpen  Yield"));
+		mode = 1;
+		delayMs(10 * DELAY);
+		ProcessID readWriteOpenProc = os_exec(4, DEFAULT_PRIORITY);
+		delayMs(10 * DELAY);
+		os_kill(readWriteOpenProc);
+
+		// Open the block twice (-> test parallel reading)
+		opBlock1 = os_sh_readOpen(DRIVER, &shBlock);
+		if (opBlock1 != shBlock) {
+			errors++;
+			os_error("Address shouldn't have changed (1)");
+		}
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("1x readOpen"));
+		delayMs(10 * DELAY);
+
+		opBlock2 = os_sh_readOpen(DRIVER, &shBlock);
+		if (opBlock2 != shBlock) {
+			errors++;
+			os_error("Address shouldn't have changed (2)");
+		}
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("2x readOpen"));
+		delayMs(10 * DELAY);
+
+
+		os_sh_close(DRIVER, opBlock2);
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(10 * DELAY);
+	}
+	lcd_clear();
+
+	// Check read/write barriers
+	lcd_writeProgString(PSTR("9: Checking RW barriers..."));
+	delayMs(10 * DELAY);
+	{
+		// Read before write (opBlock1 is still read-open here!):
+		lcd_clear();
+		lcd_writeProgString(PSTR("Read before\nwrite"));
+		delayMs(10 * DELAY);
+
+		// Set behavior of program 2: readOpen
+		mode = 1;
+		os_exec(2, DEFAULT_PRIORITY);
+		// Grant process at least one time slot
+		while (state == 0);
+		delayMs(5 * DELAY);
+		os_kill(2);
+		state = 0;
+		os_sh_close(DRIVER, opBlock1);
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(5 * DELAY);
+
+		// Write before read:
+		lcd_clear();
+		lcd_writeProgString(PSTR("Write before\nread"));
+		delayMs(10 * DELAY);
+
+		opBlock1 = os_sh_writeOpen(DRIVER, &shBlock);
+		if (opBlock1 != shBlock) {
+			errors++;
+			os_error("Address shouldn't have changed (3)");
+		}
+
+		// Set behavior of program 2: writeOpen
+		mode = 2;
+		os_exec(2, DEFAULT_PRIORITY);
+		// Grant process at least one time slot
+		while (state == 0);
+		delayMs(5 * DELAY);
+		os_kill(2);
+		state = 0;
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(5 * DELAY);
+
+		// Write before write:
+		lcd_clear();
+		lcd_writeProgString(PSTR("Write before\nwrite"));
+		delayMs(10 * DELAY);
+
+		// Set behavior of program 2: readOpen
+		mode = 3;
+		os_exec(2, DEFAULT_PRIORITY);
+		// Grant process at least one time slot
+		while (state == 0);
+		delayMs(5 * DELAY);
+		os_kill(2);
+		state = 0;
+		os_sh_close(DRIVER, opBlock1);
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(10 * DELAY);
+	}
+	lcd_clear();
+
+
+	// Check offset
+	lcd_writeProgString(PSTR("10: Checking offset..."));
+	delayMs(10 * DELAY);
+	{
+		MemValue value = 0;
+		MemValue pat[10];
+
+		// Write pattern (opBlock1 is still write-open here!):
+		for (i = 0; i < 10; i++) {
+			MemValue const a = i + 1;
+			os_sh_write(DRIVER, &shBlock, i, &a, 1);
+		}
+
+		// Read pattern without offset
+		// The read pattern should always be the first one
+		for (i = 0; i < 10; i++) {
+			opBlock1 = shBlock + i;
+			os_sh_read(DRIVER, &opBlock1, 0, &value, 1);
+			if (value != 1) {
+				errors++;
+				os_error("Pattern mismatch (1)");
+			}
+		}
+
+		// Read pattern one by one with offset
+		for (i = 0; i < 10; i++) {
+			os_sh_read(DRIVER, &shBlock, i, &value, 1);
+			if (value != i + 1) {
+				errors++;
+				os_error("Pattern mismatch (2)");
+			}
+		}
+
+		// Read pattern all at once without offset
+		os_sh_read(DRIVER, &shBlock, 0, (MemValue*)&pat, 10);
+		for (i = 0; i < 10; i++) {
+			if (pat[i] != i + 1) {
+				errors++;
+				os_error("Pattern mismatch (3)");
+			}
+		}
+
+		// Read pattern-blocks with false and correct offset
+		for (i = 0; i < 10; i++) {
+			opBlock1 = shBlock + i;
+			os_sh_read(DRIVER, &opBlock1, i, (MemValue*)&pat, 10 - i);
+
+			for (j = 0; j < 10 - i; j++)
+			if (pat[j] != i + j + 1) {
+				errors++;
+				os_error("Pattern mismatch (4)");
+			}
+		}
+
+		lcd_clear();
+		lcd_writeProgString(PSTR("OK"));
+		delayMs(10 * DELAY);
+	}
+	lcd_clear();
+
+	if (errors) {
+		lcd_writeDec(errors);
+		lcd_writeProgString(PSTR(" errors!"));
+		} else {
 		// SUCCESS
 		lcd_clear();
 		lcd_writeProgString(PSTR("ALL TESTS PASSED"));
@@ -530,9 +419,50 @@ PROGRAM(3, AUTOSTART) {
 		lcd_line2();
 		lcd_writeProgString(PSTR("TERMINATION"));
 		delayMs(1000);
-    } else {
-        lcd_clear();
-        lcd_writeProgString(PSTR("  TEST FAILED!"));
-        while (1);
-    }
+	}
+	delayMs(10 * DELAY);
+}
+
+// Used for checking R/W barriers
+PROGRAM(2, DONTSTART) {
+	state = 1;
+
+	if (mode == 1) {
+		os_sh_writeOpen(DRIVER, &shBlock);
+		os_error("FAILURE @ Read before write");
+		} else if (mode == 2) {
+		os_sh_readOpen(DRIVER, &shBlock);
+		os_error("FAILURE @ Write before read");
+		} else if (mode == 3) {
+		os_sh_writeOpen(DRIVER, &shBlock);
+		os_error("FAILURE @ Write before write");
+	}
+	errors++;
+}
+
+PROGRAM(3, DONTSTART) {
+	os_sh_readOpen(DRIVER, &shBlockYield);
+	os_sh_readOpen(DRIVER, &shBlockYield);
+	os_sh_readOpen(DRIVER, &shBlockYield);
+	os_sh_readOpen(DRIVER, &shBlockYield);
+	os_sh_readOpen(DRIVER, &shBlockYield);
+	os_sh_readOpen(DRIVER, &shBlockYield);
+	os_error("No yield when read opened");
+	while (1);
+}
+
+PROGRAM(4, DONTSTART) {
+	if (mode == 0) {
+		os_sh_writeOpen(DRIVER, &shBlockYield);
+		os_sh_readOpen(DRIVER, &shBlockYield);
+		os_sh_readOpen(DRIVER, &shBlockYield);
+		os_error("No yield when w/r opened");
+		while (1);
+		} else if (mode == 1) {
+		os_sh_readOpen(DRIVER, &shBlockYield);
+		os_sh_readOpen(DRIVER, &shBlockYield);
+		os_sh_writeOpen(DRIVER, &shBlockYield);
+		os_error("No yield when r/w opened");
+		while (1);
+	}
 }

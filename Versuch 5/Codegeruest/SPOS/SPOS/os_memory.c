@@ -343,14 +343,16 @@ void os_sh_free(Heap* heap, MemAddr *addr) {
 }
 
 void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length) {
-	MemAddr sh_addr = os_sh_writeOpen(heap, ptr);
-	if(sh_addr == 0) return;
-	
-	uint16_t sh_chunk_size = os_getChunkSize(heap, sh_addr);
+	uint16_t sh_chunk_size = os_getChunkSize(heap, ptr);
 	if(!(sh_chunk_size >= length + offset)) {
 		os_error("Chunk sizes too small.");
 		return;
 	}
+
+	
+	MemAddr sh_addr = os_sh_writeOpen(heap, ptr);
+	if(sh_addr == 0) return;
+	
 	
 	int i = 0;
 	
@@ -394,8 +396,9 @@ MemAddr os_sh_readOpen (Heap const *heap, MemAddr const *ptr) {
 		return 0;
 	}
 	
-	if(sh_is_writing(heap, *ptr) || sh_get_reading(heap, *ptr) >= SH_MAX_READING) {
-		return 0;
+	while (sh_is_writing(heap, *ptr) || sh_get_reading(heap, *ptr) >= SH_MAX_READING) {
+		os_yield();
+		//return 0;
 	}
 	os_enterCriticalSection();
 	sh_add_reading(heap, *ptr);
@@ -414,8 +417,9 @@ MemAddr os_sh_writeOpen (Heap const *heap, MemAddr const *ptr) {
 		return 0;
 	}
 	
-	if(sh_is_writing(heap, *ptr) || sh_is_reading(heap, *ptr)) {
-		return 0;
+	while(sh_is_writing(heap, *ptr) || sh_is_reading(heap, *ptr)) {
+		//return 0;
+		os_yield();
 	}
 	os_enterCriticalSection();
 	sh_set_writing(heap, *ptr);

@@ -41,7 +41,7 @@
     <ResetRule>0</ResetRule>
     <EraseKey />
     <avrtool>com.atmel.avrdbg.tool.jtagice3plus</avrtool>
-    <avrtoolserialnumber>J30200042790</avrtoolserialnumber>
+    <avrtoolserialnumber>J30200031990</avrtoolserialnumber>
     <avrdeviceexpectedsignature>0x1E9609</avrdeviceexpectedsignature>
     <com_atmel_avrdbg_tool_jtagice3plus>
       <ToolOptions>
@@ -51,7 +51,7 @@
         <InterfaceName>JTAG</InterfaceName>
       </ToolOptions>
       <ToolType>com.atmel.avrdbg.tool.jtagice3plus</ToolType>
-      <ToolNumber>J30200042790</ToolNumber>
+      <ToolNumber>J30200031990</ToolNumber>
       <ToolName>JTAGICE3</ToolName>
     </com_atmel_avrdbg_tool_jtagice3plus>
     <avrtoolinterface>JTAG</avrtoolinterface>
