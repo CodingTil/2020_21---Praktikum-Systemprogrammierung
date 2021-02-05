@@ -33,8 +33,8 @@ void os_resetSchedulingInformation(SchedulingStrategy strategy) {
 void os_resetProcessSchedulingInformation(ProcessID id) {
     schedulingInfo.age[id] = 0;
 	MLFQ_removePID(id);
-	pqueue_append(MLFQ_getQueue(os_getProcessSlot(id)->priority), id);
-	schedulingInfo.counter[id] = MLFQ_getDefaultTimeslice(os_getProcessSlot(id)->priority);
+	pqueue_append(MLFQ_getQueue(MLFQ_MapToQueue(os_getProcessSlot(id)->priority)), id);
+	schedulingInfo.counter[id] = MLFQ_getDefaultTimeslice(MLFQ_MapToQueue(os_getProcessSlot(id)->priority));
 }
 
 /*!
@@ -49,7 +49,7 @@ void os_resetProcessSchedulingInformation(ProcessID id) {
  */
 ProcessID os_Scheduler_Even(Process const processes[], ProcessID current) {
     for(uint8_t i = current + 1; i <= MAX_NUMBER_OF_PROCESSES + current; i++) {
-		if((processes[i % MAX_NUMBER_OF_PROCESSES].state == OS_PS_READY || processes[i % MAX_NUMBER_OF_PROCESSES].state == OS_PS_BLOCKED) && i % MAX_NUMBER_OF_PROCESSES != 0) return i % MAX_NUMBER_OF_PROCESSES;
+		if(processes[i % MAX_NUMBER_OF_PROCESSES].state == OS_PS_READY && i % MAX_NUMBER_OF_PROCESSES != 0) return i % MAX_NUMBER_OF_PROCESSES;
 	}
 	return 0;
 }
@@ -68,7 +68,7 @@ ProcessID os_Scheduler_Random(Process const processes[], ProcessID current) {
     uint8_t active_found = 0;
     uint8_t result = rand() % (number_active_procs - 1);
 	for(uint8_t i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
-		if(processes[i].state == OS_PS_READY || processes[i].state == OS_PS_BLOCKED) {
+		if(processes[i].state == OS_PS_READY) {
 			if(active_found++ == result) return i;
 		}
 	}
@@ -111,24 +111,18 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
 	// Update aged
 	uint8_t i;
 	for (i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
-		if ((processes[i].state == OS_PS_READY || processes[i].state == OS_PS_BLOCKED) && i != current) {
+		if (processes[i].state == OS_PS_READY && i != current) {
 			schedulingInfo.age[i] += processes[i].priority;
 		}
-		/*
-		if(processes[i].state == OS_PS_BLOCKED) {
-			processes[i].state = OS_PS_READY;
-			schedulingInfo.age[i] = processes[i].priority;
-		}
-		*/
 	}
 	
 	// Select highest
 	uint8_t max_age = 0;
 	for (i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
-		if ((processes[i].state == OS_PS_READY || processes[i].state == OS_PS_BLOCKED) && schedulingInfo.age[i] > schedulingInfo.age[max_age]) {
+		if (processes[i].state == OS_PS_READY && schedulingInfo.age[i] > schedulingInfo.age[max_age]) {
 			max_age = i;
 		}
-		if ((processes[i].state == OS_PS_READY || processes[i].state == OS_PS_BLOCKED) && schedulingInfo.age[i] == schedulingInfo.age[max_age] && processes[i].priority > processes[max_age].priority) {
+		if (processes[i].state == OS_PS_READY && schedulingInfo.age[i] == schedulingInfo.age[max_age] && processes[i].priority > processes[max_age].priority) {
 			// if processes[i].priority == processes[max_age].priority then do nothing because we traverse array in correct order
 			max_age = i;
 		}
@@ -150,10 +144,11 @@ ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID curren
  *  \return The next process to be executed, determined based on the run-to-completion strategy.
  */
 ProcessID os_Scheduler_RunToCompletion(Process const processes[], ProcessID current) {
-    if(processes[current].state == OS_PS_UNUSED || processes[current].state == OS_PS_BLOCKED) return os_Scheduler_Even(processes, current);
+    if(processes[current].state == OS_PS_UNUSED) return os_Scheduler_Even(processes, current);
 	return current;
 }
 
+// UMSCHREIBEN
 ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
 	for(int queueID = 0; queueID < PRIORITY_CLASSES; queueID ++) {
 		ProcessQueue* queue = MLFQ_getQueue(queueID);
@@ -228,11 +223,11 @@ void pqueue_dropFirst(ProcessQueue *queue) {
 }
 
 void pqueue_append(ProcessQueue *queue, ProcessID pid) {
+	queue->data[queue->head] = pid;
 	queue->head++;
 	if (queue->head >= queue->size) {
 		queue->head = 0;
-	}	
-	queue->data[queue->head] = pid;
+	}
 }
 
 ProcessQueue* MLFQ_getQueue(uint8_t queueID) {

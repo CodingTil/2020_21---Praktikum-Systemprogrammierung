@@ -1,282 +1,328 @@
+//-------------------------------------------------
+//          TestSuite: Multilevel-Feedback-Queue
+//-------------------------------------------------
+
+#include "os_core.h"
 #include "lcd.h"
 #include "util.h"
-#include "os_core.h"
 #include "os_scheduler.h"
 #include "os_memory.h"
+#include "os_scheduling_strategies.h"
+#include "os_input.h"
 #include <avr/interrupt.h>
+#include <util/delay.h>
 
-#define DELAY (999 + 1ul)
-#define BASE 2
+#define MAX_STEPS 64
+#define NUMBER_OF_QUEUES 4
+uint8_t capture[MAX_STEPS];
+uint8_t i = 0;
 
-//ACHTUNG CUtoffs müssen angepasst werden falls Iterationszahl verändert wird
-#define MAX_TEST_ITERATIONS 9
+ISR(TIMER2_COMPA_vect);
 
-//define strategies to test
-#define EVEN  0
-#define MLFQ  1
-#define RAND  0
-#define INAC  0
-#define RR    0
-#define RCOMP 0
-
-typedef unsigned long volatile Iterations;
-Iterations iterations1 = 0, iterations2 = 0;
-uint8_t finished;
-
-ProcessID yielder_id,runner_id,printer_id;
-volatile uint8_t current_strat = 0;
-
-typedef struct TestResults{
-    uint8_t ratio;
-    char const* const name;
-    SchedulingStrategy strat;
-    uint8_t active;
-    uint8_t cutoff_bot;
-    uint8_t cutoff_top;
-} TestResults;
-
-static char PROGMEM const  evenStr[] = "EVEN";
-static char PROGMEM const  mlfqStr[] = "MLFQ";
-static char PROGMEM const  randStr[] = "RAND";
-static char PROGMEM const  inacStr[] = "INACTIVE AGING";
-static char PROGMEM const    rrStr[] = "ROUND ROBIN";
-static char PROGMEM const  runcomp[] = "Run to Comp";
-
-TestResults results[6] = {
-    {0,evenStr,OS_SS_EVEN,EVEN,4,255},
-    {0,mlfqStr,OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE,MLFQ,30,255},
-    {0,randStr,OS_SS_RANDOM,RAND,3,255},
-    {0,inacStr,OS_SS_INACTIVE_AGING,INAC,4,255},
-    {0,rrStr,OS_SS_ROUND_ROBIN,RR,8,255},
-    {0,runcomp,OS_SS_RUN_TO_COMPLETION,RCOMP,1,1},
+// Array containing the correct output values for all four scheduling strategies.
+const uint8_t scheduling[MAX_STEPS] PROGMEM  =  {
+	1, 2, 3, 4, 3, 20, 4, 4, 2, 3, 3, 4, 5, 5, 70, 4, 7, 4, 40, 2, 2, 2, 2, 6, 5, 1, 1, 1, 1, 1, 1, 1,
+	1, 4, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 };
 
-TestResults *select_next_strat(){
-    while(current_strat < 5 ){
-        current_strat++;
-        if(results[current_strat].active){
-            return &results[current_strat];
-        }
-    }
-    return NULL;
+void printAndCheck(uint8_t page) {
+	// Print captured schedule
+	lcd_clear();
+	for (i = (page * 32); i < (page * 32) + 32; i++) {
+		// Print corresponding alphabetic character if yielded
+		if (capture[i] >= 10) {
+			lcd_writeChar('a' + (capture[i] / 10) - 1);
+			} else {
+			lcd_writeDec(capture[i]);
+		}
+	}
+
+	// Check captured schedule
+	for (i = (page * 32); i < (page * 32) + 32; i++) {
+		if (capture[i] != pgm_read_byte(&scheduling[i])) {
+			// Move cursor
+			lcd_goto((i > 16 + page * 32) + 1, (i % 16) + 1);
+			// Show cursor without underlining the position
+			lcd_command((LCD_SHOW_CURSOR & ~(1 << 1)) | LCD_DISPLAY_ON);
+			while (1) {}
+		}
+		if (i == (page * 32) + 31) {
+			_delay_ms(2000);
+			lcd_clear();
+			lcd_writeProgString(PSTR("OK"));
+		}
+	}
+
+	_delay_ms(2000);
 }
 
-//! Calculates the log to display the yield/noYield quotient
-unsigned logBase(unsigned long base, unsigned long value) {
-    if (base <= 1) {
-        return 0;
-    }
-    unsigned result = 0;
-    for (; value; value /= base) {
-        result++;
-    }
-    return result;
+
+void performTest() {
+	lcd_writeProgString(PSTR("Testing MLFQ"));
+	os_setSchedulingStrategy(OS_SS_MULTI_LEVEL_FEEDBACK_QUEUE);
+	_delay_ms(2000);
+
+	// Perform scheduling test.
+	// Save the id of the running process and call the scheduler.
+	i = 0;
+	uint8_t runtime = 0;
+	while (i < MAX_STEPS) {
+		runtime++;
+
+		if (runtime == 10) {
+			// Check if process 5 is really program 4
+			if (os_getProcessSlot(4)->progID != 4) {
+				os_error("Program 4 not startet in slot 4.");
+				while (1);
+			}
+			os_kill(4);
+
+
+			// Process with program id 1 is still running, so we should be able to spawn at least 6 more (wrt. idle process)
+			uint8_t procs_num = MAX_NUMBER_OF_PROCESSES - 2;
+			uint8_t procs[procs_num];
+			uint8_t procs_progid = 2;
+
+			// Check if all processes were removed or are going to be (if that's implemented in os_exec)
+			uint8_t pid = INVALID_PROCESS;
+			for (uint8_t i = 0; i < procs_num; i++) {
+				pid = os_exec(procs_progid, DEFAULT_PRIORITY);
+				if (pid == INVALID_PROCESS) {
+					os_error("Could not exec process");
+					} else {
+					procs[i] = pid;
+				}
+			}
+
+			// Check program id, number of processes in queues and process state
+			uint8_t count_all = 0;
+			uint8_t count_valid = 0;
+			
+			for(uint8_t i = 0; i < NUMBER_OF_QUEUES; i++){
+				
+				ProcessQueue* queue = MLFQ_getQueue(i);
+				
+				if(!pqueue_hasNext(queue))
+				continue;
+				
+				ProcessID first = pqueue_getFirst(queue);
+
+				
+				do {
+					ProcessID pid = pqueue_getFirst(queue);
+					Process* proc = os_getProcessSlot(pid);
+
+					if ((proc->progID == procs_progid && proc->state == OS_PS_READY) || (proc->progID == os_getCurrentProc()) || (proc->progID == 0)) {
+						count_valid++;
+					}
+
+					count_all++;
+					pqueue_dropFirst(queue);
+					pqueue_append(queue, pid);
+				} while (pqueue_getFirst(queue) != first);
+				
+			}
+
+			if (count_all != count_valid || count_valid < procs_num + 1) {
+				os_error("Queue incorrect");
+			}
+
+			bool killed = false;
+			for (uint8_t i = 0; i < procs_num; i++) {
+				killed = os_kill(procs[i]);
+				if (!killed) {
+					os_error("Could not kill process");
+				}
+			}
+
+		}
+
+		capture[i++] = 1;
+		TIMER2_COMPA_vect();
+	}
+
+	printAndCheck(0);
+	printAndCheck(1);
+	// SUCCESS
+	lcd_clear();
+	lcd_writeProgString(PSTR("ALL TESTS PASSED"));
+	lcd_line2();
+	lcd_writeProgString(PSTR(" PLEASE CONFIRM!"));
+	os_waitForInput();
+	os_waitForNoInput();
+	lcd_clear();
+	lcd_writeProgString(PSTR("WAITING FOR"));
+	lcd_line2();
+	lcd_writeProgString(PSTR("TERMINATION"));
+	delayMs(1000);
 }
 
-void enterMultipleCriticalSections(uint8_t count) {
-    for (uint8_t i = 0; i < count; i++) {
-        os_enterCriticalSection();
-    }
-}
 
-void leaveMultipleCriticalSections(uint8_t count) {
-    for (uint8_t i = 0; i < count; i++) {
-        os_leaveCriticalSection();
-    }
-}
-
-/*!
- * For each iteration some operations are executed in a critical section and counting the completed iterations.
- * If yield is true yield will be called after half of the operations.
- * Therefore testing if yield() correctly passes computing time on to the next process.
- */
-void loop(bool yield, Iterations* iterations) {
-    for (;;) {
-        while (1) {
-            if (yield) {
-                enterMultipleCriticalSections(128);
-                os_yield();
-                leaveMultipleCriticalSections(128);
-            } else {
-                cli();
-                // This will produce a critical section overflow, if yield doesn't reset the count
-                // This is needed to test, because the criticalSectionCount is not available globally
-                enterMultipleCriticalSections(128);
-                leaveMultipleCriticalSections(128);
-                sei();
-            }
-            cli();
-            ++*iterations;
-            sei(); // We positively KNOW the I-Flag was off!
-        }
-    }
-}
-
-//! Main test program.
 PROGRAM(1, AUTOSTART) {
-    lcd_writeProgString(PSTR("1: Checking yield..."));
-    delayMs(DELAY);
-    // Set ibit of SREG to 0 to check if it is properly restored
-    SREG &= ~(1 << 7);
-    os_exec(2, DEFAULT_PRIORITY);
-    finished = 0;
-    while (!finished) {
-        os_yield();
-    }
-    // Check if SREG has been restored
-    if ((SREG & (1 << 7)) != 0) {
-        os_error("SREG not restored");
-        while (1);
-    }
-    lcd_writeProgString(PSTR("OK"));
-    delayMs(DELAY);
-    lcd_clear();
+	// Disable scheduler-timer
+	cbi(TCCR2B, CS22);
+	cbi(TCCR2B, CS21);
+	cbi(TCCR2B, CS20);
 
-    lcd_writeProgString(PSTR("2: Checking quotient..."));
-    delayMs(DELAY);
-    // Re-enable interrupts
-    SREG |= (1 << 7);
+	os_getProcessSlot(os_getCurrentProc())->priority = 2;
 
-    //select first active strat
-    while(!results[current_strat].active && current_strat+1 < 6){
-        current_strat++;
-    }
-    if(current_strat == 5 && !results[5].active){
-        lcd_clear();
-        lcd_writeProgString(PSTR("No Strategys"));
-        os_kill(os_getCurrentProc());
-    }
-    
-    os_setSchedulingStrategy(results[current_strat].strat);
-    
-    yielder_id = os_exec(4, DEFAULT_PRIORITY);
-    runner_id = os_exec(3, DEFAULT_PRIORITY);
-    printer_id = os_exec(5, DEFAULT_PRIORITY);
-    os_exec(6, DEFAULT_PRIORITY);
+	os_exec(2, 0b11000000);
+	os_exec(3, 0b10000000);
+
+	// Start test cycle
+	performTest();
 }
 
-//! Sets GIEB to check if it's correctly cleared again after yield of program 1
 PROGRAM(2, DONTSTART) {
-    SREG |= (1 << 7);
-    finished = 1;
+	uint8_t runtime = 0;
+
+	// Perform scheduling test
+	while (i < MAX_STEPS) {
+		runtime++;
+		//exec
+		// -
+
+		//yield
+		if (runtime == 2) {
+			capture[i++] = 20;
+			os_yield();
+			runtime++;
+		}
+
+		capture[i++] = 2;
+
+		//termination
+		if (runtime == 7) {
+			break;
+		}
+		TIMER2_COMPA_vect();
+	}
 }
 
-//! Not yielding process
 PROGRAM(3, DONTSTART) {
-    loop(false, &iterations1);
+	uint8_t runtime = 0;
+
+	// Perform scheduling test
+	while (i < MAX_STEPS) {
+		runtime++;
+		//exec
+		if (runtime == 1) {
+			os_exec(4, 0b11000000);
+		}
+
+		//yield
+		// -
+
+		capture[i++] = 3;
+
+		//termination
+		if (runtime == 4) {
+			break;
+		}
+		TIMER2_COMPA_vect();
+	}
 }
 
-//! Yielding program
+
+
 PROGRAM(4, DONTSTART) {
-    loop(true, &iterations2);
+	uint8_t runtime = 0;
+
+	// Perform scheduling test
+	while (i < MAX_STEPS) {
+		runtime++;
+		//exec
+		if (runtime == 4) {
+			os_exec(5, 0b10000000);
+			os_exec(6, 0b01000000);
+		}
+
+		//yield
+		if (runtime == 7) {
+			capture[i++] = 40;
+			os_yield();
+			runtime++;
+		}
+
+		capture[i++] = 4;
+
+		//termination
+		// -
+
+		TIMER2_COMPA_vect();
+	}
 }
 
-//!RCOMP Yielding program
-PROGRAM(7, DONTSTART) {
-    iterations1 = 1;
-    iterations2 = 1;
-}
-
-//! Average Watchdog
-PROGRAM(6, DONTSTART) {
-    while(1){
-        if(logBase(BASE, iterations2) >= MAX_TEST_ITERATIONS || os_getSchedulingStrategy() == OS_SS_RUN_TO_COMPLETION){
-            //killing all test programs to reset runtime variables without 0 divisions etc.
-            os_enterCriticalSection();
-            os_kill(runner_id);
-            os_kill(yielder_id);
-            os_kill(printer_id);
-            
-            results[current_strat].ratio = (iterations1 / iterations2);
-            
-            //resetting iteration counts for next strat
-            iterations1 = 0;
-            iterations2 = 0;
-            
-            lcd_clear();
-            if(select_next_strat() == NULL){
-                uint8_t failed = 0;
-                for(uint8_t strat_runner = 1;strat_runner < 7;strat_runner++){
-                    if((results[strat_runner-1].ratio < results[strat_runner-1].cutoff_bot ||
-                       results[strat_runner-1].ratio > results[strat_runner-1].cutoff_top) &&
-                       results[strat_runner-1].active)
-                    {
-                        failed = strat_runner-1;
-                        break;
-                    }
-                }
-                if(!failed){
-                    lcd_writeProgString(PSTR("----SUCCESS-----"));
-                    lcd_line2();
-                    for (uint8_t iter = 0 ; iter < 6 ;iter++){
-                        if(results[iter].active){
-                        lcd_writeDec(results[iter].ratio);}
-                        else {
-                            lcd_writeProgString(PSTR("X"));
-                        }
-                        if(iter != 5) lcd_writeProgString(PSTR("|"));
-                    }
-                } else {
-                    lcd_writeProgString(PSTR("-----FAILED-----"));
-                    lcd_line2();
-                    for (uint8_t iter = 0 ; iter < failed+1 ;iter++){
-                        if(results[iter].active){
-                        lcd_writeDec(results[iter].ratio);}
-                        else {
-                            lcd_writeProgString(PSTR("D"));
-                        }
-                        if(iter != failed) lcd_writeProgString(PSTR("|"));
-                    }
-                    lcd_writeProgString(PSTR("<"));
-                }
-                
-                while(1){};
-                break;
-            }
-            os_setSchedulingStrategy(results[current_strat].strat);
-            
-            if(os_getSchedulingStrategy() == OS_SS_RUN_TO_COMPLETION){
-                //starting yield flag process
-                os_exec(7, DEFAULT_PRIORITY);
-                //force yield to flag process
-                os_yield();
-            } else {
-                yielder_id = os_exec(4, DEFAULT_PRIORITY);
-                runner_id = os_exec(3, DEFAULT_PRIORITY);
-                printer_id = os_exec(5, DEFAULT_PRIORITY);
-            }
-            os_leaveCriticalSection();
-        }
-    }
-}
-
-// Prints the quotient between the iterations with and without yield().
 PROGRAM(5, DONTSTART) {
-    for (;;) {
-        lcd_clear();
-        lcd_writeProgString(results[current_strat].name);
-        lcd_line2();
-        lcd_writeDec(BASE);
-        lcd_writeChar('^');
-        lcd_writeDec(logBase(BASE, iterations1));
-        lcd_writeChar('/');
-        lcd_writeDec(BASE);
-        lcd_writeChar('^');
-        lcd_writeDec(logBase(BASE, iterations2));
-        Iterations i1, i2;
-        do {
-            i1 = iterations1;
-            i2 = iterations2;
-            lcd_goto(2, 11);
-            lcd_writeChar('=');
-            if (iterations1 >= iterations2) {
-                lcd_writeDec(iterations1 / iterations2);
-            } else {
-                lcd_writeChar('1');
-                lcd_writeChar('/');
-                lcd_writeDec(iterations2 / iterations1);
-            }
-            while (i1 == iterations1 && i2 == iterations2);
-        } while (logBase(BASE, i1) == logBase(BASE, iterations1) && logBase(BASE, i2) == logBase(BASE, iterations2));
-    }
+	uint8_t runtime = 0;
+
+	// Perform scheduling test
+	while (i < MAX_STEPS) {
+		runtime++;
+		//exec
+		if (runtime == 1) {
+			os_exec(7, 0b10000000);
+		}
+
+		//yield
+		// -
+
+		capture[i++] = 5;
+
+		//termination
+		if (runtime == 3) {
+			break;
+		}
+		TIMER2_COMPA_vect();
+	}
 }
+
+PROGRAM(6, DONTSTART) {
+	uint8_t runtime = 0;
+
+	// Perform scheduling test
+	while (i < MAX_STEPS) {
+		runtime++;
+		//exec
+		// -
+
+		//yield
+		// -
+
+		capture[i++] = 6;
+
+		//termination
+		if (runtime == 1) {
+			break;
+		}
+		TIMER2_COMPA_vect();
+	}
+}
+
+PROGRAM(7, DONTSTART) {
+	uint8_t runtime = 0;
+
+	// Perform scheduling test
+	while (i < MAX_STEPS) {
+		runtime++;
+		//exec
+		// -
+
+		//yield
+		if (runtime == 1) {
+			capture[i++] = 70;
+			os_yield();
+			runtime++;
+		}
+
+		capture[i++] = 7;
+
+		//termination
+		if (runtime == 2) {
+			break;
+		}
+		TIMER2_COMPA_vect();
+	}
+}
+
+

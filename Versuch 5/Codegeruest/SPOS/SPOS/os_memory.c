@@ -332,14 +332,16 @@ MemAddr os_sh_malloc(Heap* heap, size_t size) {
 }
 
 void os_sh_free(Heap* heap, MemAddr *addr) {
+	os_enterCriticalSection();
 	if(sh_is_shared_memory(heap, *addr)) {
 		while(sh_is_open(heap, *addr)) {
 			os_yield();
 		}
 		os_freeOwnerRestricted(heap, *addr, SH_ALLOC);
-		}else {
+	}else {
 		os_error("Memory is not shared memory.");
 	}
+	os_leaveCriticalSection();
 }
 
 void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length) {
@@ -387,7 +389,7 @@ void os_sh_read(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue 
 
 MemAddr os_sh_readOpen (Heap const *heap, MemAddr const *ptr) {
 	os_enterCriticalSection();
-	MemAddr addr = *ptr;
+	MemAddr addr = os_getFirstByteOfChunk(heap, *ptr);
 	if(!(addr >= heap->use_start && addr < heap->use_start + heap->use_size)) {
 		//os_error("Out of bounds.");
 		os_leaveCriticalSection();
@@ -400,9 +402,8 @@ MemAddr os_sh_readOpen (Heap const *heap, MemAddr const *ptr) {
 	}
 	
 	while (sh_is_writing(heap, addr) || sh_get_reading(heap, addr) >= SH_MAX_READING) {
-		os_leaveCriticalSection();
 		os_yield();
-		os_enterCriticalSection();
+		addr = os_getFirstByteOfChunk(heap, *ptr);
 	}
 	sh_add_reading(heap, addr);
 	os_leaveCriticalSection();
@@ -411,7 +412,7 @@ MemAddr os_sh_readOpen (Heap const *heap, MemAddr const *ptr) {
 
 MemAddr os_sh_writeOpen (Heap const *heap, MemAddr const *ptr) {
 	os_enterCriticalSection();
-	MemAddr addr = *ptr;
+	MemAddr addr = os_getFirstByteOfChunk(heap, *ptr);
 	if(!(addr >= heap->use_start && addr < heap->use_start + heap->use_size)) {
 		//os_error("Out of bounds.");
 		os_leaveCriticalSection();
@@ -424,9 +425,8 @@ MemAddr os_sh_writeOpen (Heap const *heap, MemAddr const *ptr) {
 	}
 	
 	while(sh_is_writing(heap, addr) || sh_is_reading(heap, addr)) {
-		os_leaveCriticalSection();
 		os_yield();
-		os_enterCriticalSection();
+		addr = os_getFirstByteOfChunk(heap, *ptr);
 	}
 	sh_set_writing(heap, addr);
 	os_leaveCriticalSection();
