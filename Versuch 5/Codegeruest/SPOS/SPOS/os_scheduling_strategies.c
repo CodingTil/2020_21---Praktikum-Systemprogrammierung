@@ -5,9 +5,6 @@
 
 SchedulingInformation schedulingInfo;
 
-
-//*****DIE GANZEN FUNKTOINEN HATTEN IMMER EIN CONST: LAUT DOCS IST DAS AUCH SO: ABER ICH KANN DEN STATE NICHT ÄNDERN WENN DIE OBJECTE CONST SIND!!!!********
-
 /*!
  *  Reset the scheduling information for a specific strategy
  *  This is only relevant for RoundRobin and InactiveAging
@@ -48,12 +45,9 @@ void os_resetProcessSchedulingInformation(ProcessID id) {
  *  \param current The id of the current process.
  *  \return The next process to be executed determined on the basis of the even strategy.
  */
-ProcessID os_Scheduler_Even(Process processes[], ProcessID current) {
+ProcessID os_Scheduler_Even(Process const processes[], ProcessID current) {
     for(uint8_t i = current + 1; i <= MAX_NUMBER_OF_PROCESSES + current; i++) {
 		if(processes[i % MAX_NUMBER_OF_PROCESSES].state == OS_PS_READY && i % MAX_NUMBER_OF_PROCESSES != 0) return i % MAX_NUMBER_OF_PROCESSES;
-		if(processes[i % MAX_NUMBER_OF_PROCESSES].state == OS_PS_BLOCKED) {
-			processes[i % MAX_NUMBER_OF_PROCESSES].state = OS_PS_READY;
-		}
 	}
 	return 0;
 }
@@ -66,7 +60,7 @@ ProcessID os_Scheduler_Even(Process processes[], ProcessID current) {
  *  \param current The id of the current process.
  *  \return The next process to be executed determined on the basis of the random strategy.
  */
-ProcessID os_Scheduler_Random(Process processes[], ProcessID current) {
+ProcessID os_Scheduler_Random(Process const processes[], ProcessID current) {
 	uint8_t number_active_procs = os_getNumberOfActiveProcs();
     if(number_active_procs == 1) return 0; //Only idle process
     uint8_t active_found = 0;
@@ -75,8 +69,6 @@ ProcessID os_Scheduler_Random(Process processes[], ProcessID current) {
 		if(processes[i].state == OS_PS_READY) {
 			if(active_found++ == result) return i;
 		}
-		if(processes[i].state == OS_PS_BLOCKED) processes[i].state = OS_PS_READY;
-
 	}
 	return 0; // For the compiler
 }
@@ -92,7 +84,7 @@ ProcessID os_Scheduler_Random(Process processes[], ProcessID current) {
  *  \param current The id of the current process.
  *  \return The next process to be executed determined on the basis of the round robin strategy.
  */
-ProcessID os_Scheduler_RoundRobin(Process processes[], ProcessID current) {
+ProcessID os_Scheduler_RoundRobin(Process const processes[], ProcessID current) {
     if(processes[current].state != OS_PS_READY || schedulingInfo.timeSlice == 1) {
 		ProcessID id = os_Scheduler_Even(processes, current);
 		schedulingInfo.timeSlice = processes[id].priority;
@@ -113,17 +105,19 @@ ProcessID os_Scheduler_RoundRobin(Process processes[], ProcessID current) {
  *  \param current The id of the current process.
  *  \return The next process to be executed, determined based on the inactive-aging strategy.
  */
-ProcessID os_Scheduler_InactiveAging(Process processes[], ProcessID current) {
+ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID current) {
 	// Update aged
 	uint8_t i;
 	for (i = 1; i < MAX_NUMBER_OF_PROCESSES; i++) {
 		if (processes[i].state == OS_PS_READY && i != current) {
 			schedulingInfo.age[i] += processes[i].priority;
 		}
+		/*
 		if(processes[i].state == OS_PS_BLOCKED) {
 			processes[i].state = OS_PS_READY;
 			schedulingInfo.age[i] = processes[i].priority;
 		}
+		*/
 	}
 	
 	// Select highest
@@ -143,17 +137,16 @@ ProcessID os_Scheduler_InactiveAging(Process processes[], ProcessID current) {
 	return max_age;
 }
 
-ProcessID os_Scheduler_MLFQ(Process processes[], ProcessID current) {
+ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current) {
 	for (uint8_t i = 0; i < PRIORITY_CLASSES; i++) {
 		if (pqueue_hasNext(&schedulingInfo.queues[i])) {
 			ProcessID newPID = pqueue_getFirst(&schedulingInfo.queues[i]);
 			if (newPID == current) {
 				// no new process with lower priority or os_yield
-				if (schedulingInfo.currentSlicesCounter == 0) {
+				if (schedulingInfo.currentSlicesCounter == 0 || processes[current].state != OS_PS_READY) {
 					pqueue_dropFirst(&schedulingInfo.queues[i]);
-					if (i + 1 == PRIORITY_CLASSES || processes[current].state == OS_PS_BLOCKED) {
+					if (i + 1 == PRIORITY_CLASSES ) {
 						pqueue_append(&schedulingInfo.queues[i], current);
-						processes[current].state = OS_PS_READY;
 					} else {
 						pqueue_append(&schedulingInfo.queues[i+1], current);
 					}
@@ -186,7 +179,7 @@ ProcessID os_Scheduler_MLFQ(Process processes[], ProcessID current) {
  *  \param current The id of the current process.
  *  \return The next process to be executed, determined based on the run-to-completion strategy.
  */
-ProcessID os_Scheduler_RunToCompletion(Process processes[], ProcessID current) {
+ProcessID os_Scheduler_RunToCompletion(Process const processes[], ProcessID current) {
     if(processes[current].state == OS_PS_UNUSED) return os_Scheduler_Even(processes, current);
 	return current;
 }

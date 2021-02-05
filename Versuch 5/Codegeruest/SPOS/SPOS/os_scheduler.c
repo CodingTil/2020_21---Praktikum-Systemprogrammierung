@@ -287,7 +287,8 @@ void os_initScheduler(void) {
 	for(uint8_t index = 0; index < MAX_NUMBER_OF_PROGRAMS; index++) {
 		if(os_checkAutostartProgram(index)) os_exec(index, DEFAULT_PRIORITY);
 	}
-	
+
+	os_initSchedulingInformation();
 }
 
 /*!
@@ -355,7 +356,6 @@ uint8_t os_getNumberOfRegisteredPrograms(void) {
 void os_setSchedulingStrategy(SchedulingStrategy strategy) {
 	os_resetSchedulingInformation(strategy);
     currentSchedStrat = strategy;
-	os_initSchedulingInformation();
 }
 
 /*!
@@ -432,8 +432,35 @@ StackChecksum os_getStackChecksum(ProcessID pid) {
 }
 
 void os_yield() {
-	//TODO: CRITICAL SECTION IMPLEMENTATION!!
-	os_processes[currentProc].state = OS_PS_BLOCKED;
+	// get global interrupt
+	uint8_t interrupts = gbi(SREG, 7);
+	
+	// disable global interrupt
+	cbi(SREG, 7);
+	
+	uint8_t csc_copy = criticalSectionCount;
+	
+	if (os_processes[currentProc].state != OS_PS_UNUSED) { // if the process was terminated it should not be marked as blocked for one iteration of the scheduler
+		os_processes[currentProc].state = OS_PS_BLOCKED;
+	}
+	
+	sbi(TIMSK2, OCIE2A);
+	
+	if (interrupts) {
+		sbi(SREG, 7);
+	}
+
 	TIMER2_COMPA_vect();
 	
+	// get global interrupt
+	interrupts = gbi(SREG, 7);
+		
+	// disable global interrupt
+	cbi(SREG, 7);
+	
+	criticalSectionCount = csc_copy;
+	
+	if (interrupts) {
+		sbi(SREG, 7);
+	}
 }

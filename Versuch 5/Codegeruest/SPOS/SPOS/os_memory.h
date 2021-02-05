@@ -25,4 +25,13 @@ MemAddr os_getFirstByteOfChunk(Heap const *heap, MemAddr addr);
 AllocStrategy os_getAllocationStrategy(Heap const* heap);
 void os_setAllocationStrategy(Heap* heap, AllocStrategy allocStrat);
 
+MemAddr os_sh_malloc(Heap* heap, size_t size);
+void os_sh_free(Heap* heap, MemAddr *addr);
+
+void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length);
+void os_sh_read(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue *dataDest, uint16_t length);
+MemAddr os_sh_readOpen(Heap const *heap, MemAddr const *ptr);
+MemAddr os_sh_writeOpen(Heap const *heap, MemAddr const *ptr);
+void os_sh_close (Heap const *heap, MemAddr addr);
+
 #endif /* OS_MEMORY_H_ */

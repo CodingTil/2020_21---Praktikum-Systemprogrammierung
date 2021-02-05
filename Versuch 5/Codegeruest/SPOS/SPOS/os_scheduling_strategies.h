@@ -39,22 +39,22 @@ void os_resetProcessSchedulingInformation(ProcessID id);
 void os_resetSchedulingInformation(SchedulingStrategy strategy);
 
 //! Even strategy
-ProcessID os_Scheduler_Even(Process processes[], ProcessID current);
+ProcessID os_Scheduler_Even(Process const processes[], ProcessID current);
 
 //! Random strategy
-ProcessID os_Scheduler_Random(Process processes[], ProcessID current);
+ProcessID os_Scheduler_Random(Process const processes[], ProcessID current);
 
 //! RoundRobin strategy
-ProcessID os_Scheduler_RoundRobin(Process processes[], ProcessID current);
+ProcessID os_Scheduler_RoundRobin(Process const processes[], ProcessID current);
 
 //! InactiveAging strategy
-ProcessID os_Scheduler_InactiveAging(Process processes[], ProcessID current);
+ProcessID os_Scheduler_InactiveAging(Process const processes[], ProcessID current);
 
 //! MultiLevelFeedbakcQueue strategy
-ProcessID os_Scheduler_MLFQ(Process processes[], ProcessID current);
+ProcessID os_Scheduler_MLFQ(Process const processes[], ProcessID current);
 
 //! RunToCompletion strategy
-ProcessID os_Scheduler_RunToCompletion(Process processes[], ProcessID current);
+ProcessID os_Scheduler_RunToCompletion(Process const processes[], ProcessID current);
 
 void pqueue_init(ProcessQueue *queue);
 
