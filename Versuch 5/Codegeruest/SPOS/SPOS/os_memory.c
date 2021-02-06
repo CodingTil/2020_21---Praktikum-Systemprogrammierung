@@ -134,6 +134,7 @@ void sh_set_writing(Heap const *heap, MemAddr addr) {
 }
 
 bool sh_is_writing(Heap const *heap, MemAddr addr) {
+	uint8_t x = getOwnerOfChunk(heap, addr);
 	return getOwnerOfChunk(heap, addr) == SH_WRITING;
 }
 
@@ -317,9 +318,11 @@ MemAddr os_realloc(Heap* heap, MemAddr addr, uint16_t size) {
 void os_sh_close (Heap const *heap, MemAddr addr) {
 	os_enterCriticalSection();
 	MemAddr chunk = os_getFirstByteOfChunk(heap, addr);
+	/*
 	while (sh_is_open(heap, chunk)) {
 		os_yield();
 	}
+	*/
 	setMapEntry(heap, chunk, SH_ALLOC);
 	os_leaveCriticalSection();
 }
@@ -349,16 +352,16 @@ void os_sh_free(Heap* heap, MemAddr *addr) {
 
 void os_sh_write(Heap const *heap, MemAddr const *ptr, uint16_t offset, MemValue const *dataSrc, uint16_t length) {
 	//Only works with this first?!?!?!?
-	MemAddr sh_addr = os_sh_writeOpen(heap, ptr);
-		
-	if(sh_addr == 0) return;
-
-	uint16_t sh_chunk_size = os_getChunkSize(heap, sh_addr);
+	if(ptr == 0) return;
+	
+	uint16_t sh_chunk_size = os_getChunkSize(heap, *ptr);
 	if(!(sh_chunk_size >= length + offset)) {
 		os_error("Chunk sizes too small.");
 		return;
 	}
 	
+	MemAddr sh_addr = os_sh_writeOpen(heap, ptr);
+		
 	int i = 0;
 	
 	do {

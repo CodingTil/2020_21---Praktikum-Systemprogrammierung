@@ -38,7 +38,7 @@
 // System constants
 //----------------------------------------------------------------------------
 
-#define HEAP_OFFSET 350
+#define HEAP_OFFSET 320
 
 /*!
  *  Maximum number of processes that can be running at the same time
